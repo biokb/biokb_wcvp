@@ -1,0 +1,47 @@
+version: "1.0"
+name: wcvp
+
+services:
+
+  phpmyadmin:
+    image: docker.io/phpmyadmin/phpmyadmin:latest
+    ports:
+      - "8081:80"
+    environment:
+      PMA_HOST: mysql_service
+      PMA_PORT: 3306
+    depends_on:
+      - mysql_service
+
+
+  mysql_service:
+    image: docker.io/library/mysql:8
+    ports:
+      - "3307:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=root_passwd
+      - MYSQL_DATABASE=wcvp
+      - MYSQL_USER=db_user
+      - MYSQL_PASSWORD=db_passwd
+    volumes:
+      - mysql_service_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      retries: 5
+
+  # fastapi_service:
+  #   image: localhost/wcvp_img_3
+  #   environment:
+  #     # CONNECTION_STR: "mysql+pymysql://db_user:db_passwd@mysql_service/db_name"
+  #     CONNECTION_STR: "mysql+pymysql://root:root_passwd@mysql_service:3306/db_name"
+  #   ports:
+  #     - 8080:81
+  #   depends_on:
+  #     mysql_service:
+  #       condition: service_healthy
+  #   networks:
+  #     - my_network
+
+volumes:
+  mysql_service_data:

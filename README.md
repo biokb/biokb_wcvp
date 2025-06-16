@@ -12,9 +12,6 @@ The `project_group_1` package is a powerful tool for managing and analyzing vasc
 - **Plant Management:** Manage taxons and plants in the database.
 - **Descriptive Statistics:** Generate statistics on plant data.
 
-
-
-
 For a detailed installation, usage, and literature, please refer to the [Full Documentation](/project-group-1/mkdocs/docs) .
 
 For a comprehensive overview of the research motivation, methodology, data analysis, and conclusions, please refer to the Project Report
@@ -57,13 +54,13 @@ This will start the following services:
 
 1. Open your web browser and navigate to the phpMyAdmin interface:
 
-  [http://localhost:8080]
+[http://localhost:8080]
 
 2. Log in to phpMyAdmin using the following credentials:
 
-  Username: db_user (as configured)
+Username: db_user (as configured)
 
-  Password: db_passwd
+Password: db_passwd
 
 3. Create a new database named `''db_name'' (for example)`:
 
@@ -107,13 +104,13 @@ Load a test database from a local file located at `tests/data/test_data/test_dat
 
 ---
 
-Retrieve a Plant entity using its unique plant_name_id. For example, to retrieve information for the taxon ***Picramnia polyantha*** with `2549024`.
+Retrieve a Plant entity using its unique plant_name_id. For example, to retrieve information for the taxon **_Picramnia polyantha_** with `2549024`.
 
 #### `Get Plants by Family`
 
 ---
 
-Obtain all plants of a family using its family name. For example, to get all plants of the family ***Oxalidaceae*** with family name.
+Obtain all plants of a family using its family name. For example, to get all plants of the family **_Oxalidaceae_** with family name.
 
 #### `Get Plants by Extinction`
 
@@ -186,3 +183,10 @@ SELECT *
 FROM plants
 WHERE continent = 'Europe' AND region = 'Northern Europe';
 ```
+
+# TODO: change README
+
+Thanks to students of ....
+{name = "MARIA MARTINEZ", email = "s0mamart@uni-bonn.com"},
+{name = "Xiaoxuan Yu", email = "s04xyu@uni-bonn.de"},
+{name = "Samana Fatima", email = "S22sfati@uni-bonn.de"},

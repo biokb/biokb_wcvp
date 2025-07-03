@@ -153,7 +153,9 @@ class PlantLocation(BaseModel):
     ipni_id: Optional[str]
     family: str
     taxon_name: str
-    reviewed: Optional[bool]
+    taxon_rank: Optional[str]
+    infraspecific_rank: Optional[str]
+    infraspecies: Optional[str]
     powo_id: Optional[str]
     continent: Optional[str]
     region: Optional[str]

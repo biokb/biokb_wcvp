@@ -230,6 +230,8 @@ async def search_plant_location(
     family: Optional[str] = None,
     taxon_name: Optional[str] = None,
     taxon_rank: Optional[str] = None,
+    infraspecific_rank: Optional[str] = None,
+    infraspecies: Optional[str] = None,
     powo_id: Optional[str] = None,
     continent: Optional[str] = None,
     region: Optional[str] = None,
@@ -247,6 +249,8 @@ async def search_plant_location(
             models.Plant.family,
             models.Plant.taxon_name,
             models.Plant.taxon_rank,
+            models.Plant.infraspecific_rank,
+            models.Plant.infraspecies,
             models.Plant.powo_id,
             models.Location.continent,
             models.Location.region,
@@ -262,6 +266,8 @@ async def search_plant_location(
         models.Plant.family,
         models.Plant.taxon_name,
         models.Plant.taxon_rank,
+        models.Plant.infraspecific_rank,
+        models.Plant.infraspecies,
         models.Plant.powo_id,
         models.Location.continent,
         models.Location.region,
@@ -278,6 +284,10 @@ async def search_plant_location(
         stmt = stmt.filter(models.Plant.taxon_name.like(taxon_name))
     if taxon_rank:
         stmt = stmt.filter(models.Plant.taxon_rank.like(taxon_rank))
+    if infraspecific_rank:
+        stmt = stmt.filter(models.Plant.infraspecific_rank.like(infraspecific_rank))
+    if infraspecies:
+        stmt = stmt.filter(models.Plant.infraspecies.like(infraspecies))
     if powo_id:
         stmt = stmt.filter(models.Plant.powo_id.like(powo_id))
     if continent:

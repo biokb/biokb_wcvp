@@ -1,8 +1,9 @@
 from enum import Enum
 from itertools import count
-from typing import Optional
+from typing import Annotated, Optional
 
-from pydantic import BaseModel, Field
+from fastapi import Query
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class PlantBase(BaseModel):
@@ -34,7 +35,7 @@ class PlantBase(BaseModel):
     accepted_plant_name_id: Optional[int] = None
     basionym_plant_name_id: Optional[int] = None
     replaced_synonym_author: Optional[str] = None
-    homotypic_synonym: Optional[str] = None
+    homotypic_synonym: Optional[bool] = None
     parent_plant_name_id: Optional[int] = None
     powo_id: str
     hybrid_formula: Optional[str] = None
@@ -72,18 +73,25 @@ class PlantSearch(BaseModel):
     accepted_plant_name_id: Optional[int] = None
     basionym_plant_name_id: Optional[int] = None
     replaced_synonym_author: Optional[str] = None
-    homotypic_synonym: Optional[str] = None
+    homotypic_synonym: Optional[bool] = None
     parent_plant_name_id: Optional[int] = None
     powo_id: Optional[str] = None
     hybrid_formula: Optional[str] = None
     reviewed: Optional[bool] = None
 
 
-class PlantSearchResult(BaseModel):
+class PlantSearchResultsWithLocs(BaseModel):
     count: int
     offset: int
     limit: int
     results: list[Plant]
+
+
+class PlantSearchResults(BaseModel):
+    count: int
+    offset: int
+    limit: int
+    results: list[PlantBase]
 
 
 class LocationBase(BaseModel):
@@ -118,7 +126,7 @@ class LocationSearch(BaseModel):
     wcvp_plant_id: Optional[int] = None
 
 
-class LocationSearchResult(BaseModel):
+class LocationSearchResults(BaseModel):
     count: int
     offset: int
     limit: int

@@ -81,7 +81,11 @@ def import_data(
     return dbm.import_data()
 
 
-@app.get("/plants/", response_model=schemas.PlantSearchResult, tags=[Tag.PLANT])
+@app.get(
+    "/plants/",
+    response_model=schemas.PlantSearchResults,
+    tags=[Tag.PLANT],
+)
 async def search_plants(
     search: schemas.PlantSearch = Depends(),
     offset: int = 0,
@@ -101,7 +105,30 @@ async def search_plants(
 
 
 @app.get(
-    "/locations/", response_model=schemas.LocationSearchResult, tags=[Tag.LOCATION]
+    "/plants/with_locations/",
+    response_model=schemas.PlantSearchResultsWithLocs,
+    tags=[Tag.PLANT],
+)
+async def search_plants_with_locations(
+    search: schemas.PlantSearch = Depends(),
+    offset: int = 0,
+    limit: Annotated[int, Query(le=100)] = 10,
+    session: Session = Depends(get_session),
+):
+    """
+    Search plants.
+    """
+    return build_dynamic_query(
+        search_obj=search,
+        model_cls=models.Plant,
+        db=session,
+        limit=limit,
+        offset=offset,
+    )
+
+
+@app.get(
+    "/locations/", response_model=schemas.LocationSearchResults, tags=[Tag.LOCATION]
 )
 async def search_locations(
     search: schemas.LocationSearch = Depends(),

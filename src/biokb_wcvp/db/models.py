@@ -113,8 +113,7 @@ class Plant(Base):
         String(255),
         comment="The author or authors responsible for publication of the replaced synonym. Empty when the name is not a replacement name based on another name.",
     )
-    homotypic_synonym: Mapped[Optional[str]] = mapped_column(
-        String(255),
+    homotypic_synonym: Mapped[Optional[bool]] = mapped_column(
         comment="The synonym type - TRUE if homotypic synonym, otherwise NA.",
     )
     parent_plant_name_id: Mapped[Optional[int]] = mapped_column(

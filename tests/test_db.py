@@ -2,8 +2,8 @@ import pandas as pd
 import pytest
 from sqlalchemy import create_engine
 
-from wcvp.db import models
-from wcvp.db.manager import DbManager
+from biokb_wcvp.db import models
+from biokb_wcvp.db.manager import DbManager
 
 
 @pytest.fixture

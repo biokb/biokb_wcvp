@@ -1,47 +1,42 @@
 version: "1.0"
-name: wcvp
+name: biobk_wcvp
 
 services:
+  fastapi:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      CONNECTION_STR: "mysql+pymysql://biokb_user:biokb_passwd@mysql:3306/biokb"
+    ports:
+      - 8080:8000
+    depends_on:
+      mysql:
+        condition: service_healthy
 
-  phpmyadmin:
-    image: docker.io/phpmyadmin/phpmyadmin:latest
+  pma:
+    image: docker.io/phpmyadmin/phpmyadmin:5.2.1
     ports:
       - "8081:80"
     environment:
-      PMA_HOST: mysql_service
+      PMA_HOST: mysql
       PMA_PORT: 3306
-    depends_on:
-      - mysql_service
 
-
-  mysql_service:
-    image: docker.io/library/mysql:8
+  mysql:
+    image: docker.io/library/mysql:8.4.0
     ports:
       - "3307:3306"
     environment:
-      - MYSQL_ROOT_PASSWORD=root_passwd
-      - MYSQL_DATABASE=wcvp
-      - MYSQL_USER=db_user
-      - MYSQL_PASSWORD=db_passwd
+      MYSQL_ROOT_PASSWORD: root_passwd
+      MYSQL_DATABASE: biokb
+      MYSQL_USER: biokb_user
+      MYSQL_PASSWORD: biokb_passwd
     volumes:
-      - mysql_service_data:/var/lib/mysql
+      - mysql:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot_passwd"]
       interval: 10s
       retries: 5
 
-  # fastapi_service:
-  #   image: localhost/wcvp_img_3
-  #   environment:
-  #     # CONNECTION_STR: "mysql+pymysql://db_user:db_passwd@mysql_service/db_name"
-  #     CONNECTION_STR: "mysql+pymysql://root:root_passwd@mysql_service:3306/db_name"
-  #   ports:
-  #     - 8080:81
-  #   depends_on:
-  #     mysql_service:
-  #       condition: service_healthy
-  #   networks:
-  #     - my_network
-
 volumes:
-  mysql_service_data:
+  mysql:

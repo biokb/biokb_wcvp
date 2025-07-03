@@ -4,10 +4,10 @@ from datetime import date
 import pytest
 from sqlalchemy import Engine, create_engine
 
-from wcvp.db.manager import DbManager
+from biokb_wcvp.db.manager import DbManager
 
 # Import your models and Base from models.py
-from wcvp.db.models import (
+from biokb_wcvp.db.models import (
     Area,
     Base,
     ClimateDescription,

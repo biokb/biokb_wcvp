@@ -1,5 +1,5 @@
 from fastapi.testclient import TestClient
-from wcvp.api.main import app
+from biokb_wcvp.api.main import app
 import os.path
 from fastapi import status
 import pytest

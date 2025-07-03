@@ -229,7 +229,7 @@ async def search_plant_location(
     ipni_id: Optional[str] = None,
     family: Optional[str] = None,
     taxon_name: Optional[str] = None,
-    reviewed: Optional[bool] = None,
+    taxon_rank: Optional[str] = None,
     powo_id: Optional[str] = None,
     continent: Optional[str] = None,
     region: Optional[str] = None,
@@ -246,7 +246,7 @@ async def search_plant_location(
             models.Plant.ipni_id,
             models.Plant.family,
             models.Plant.taxon_name,
-            models.Plant.reviewed,
+            models.Plant.taxon_rank,
             models.Plant.powo_id,
             models.Location.continent,
             models.Location.region,
@@ -261,7 +261,7 @@ async def search_plant_location(
         models.Plant.ipni_id,
         models.Plant.family,
         models.Plant.taxon_name,
-        models.Plant.reviewed,
+        models.Plant.taxon_rank,
         models.Plant.powo_id,
         models.Location.continent,
         models.Location.region,
@@ -276,8 +276,8 @@ async def search_plant_location(
         stmt = stmt.filter(models.Plant.family.like(family))
     if taxon_name:
         stmt = stmt.filter(models.Plant.taxon_name.like(taxon_name))
-    if reviewed:
-        stmt = stmt.filter(models.Plant.reviewed == reviewed)
+    if taxon_rank:
+        stmt = stmt.filter(models.Plant.taxon_rank.like(taxon_rank))
     if powo_id:
         stmt = stmt.filter(models.Plant.powo_id.like(powo_id))
     if continent:

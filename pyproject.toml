@@ -32,6 +32,7 @@ dev = [
 ]
 docs = [
     "eralchemy>=1.5.0",
+    "graphviz>=0.21",
 ]
 tests = [
     "pytest>=8.4.1",

@@ -12,6 +12,13 @@ dependencies = [
     "cryptography>=44.0.2",
     "fastapi[standard]>=0.115.12",
     "pydantic>=2.11.7",
+    "rdflib>=7.4.0",
+    "requests>=2.32.5",
+    "tqdm>=4.67.1",
+    "podman-compose>=1.4.0",
+    "openpyxl>=3.1.5",
+    "neo4j>=6.0.3",
+    "rdflib-neo4j>=1.1",
 ]
 requires-python = ">=3.12"
 readme = "README.md"
@@ -31,7 +38,7 @@ dev = [
     "podman-compose>=1.4.0",
 ]
 docs = [
-    "eralchemy>=1.5.0",
+    "eralchemy[graphviz]>=1.5.0",
     "graphviz>=0.21",
 ]
 tests = [

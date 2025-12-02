@@ -7,23 +7,7 @@ from sqlalchemy import Engine, create_engine
 from biokb_wcvp.db.manager import DbManager
 
 # Import your models and Base from models.py
-from biokb_wcvp.db.models import (
-    Area,
-    Base,
-    ClimateDescription,
-    Continent,
-    EnvironmentalDescription,
-    Family,
-    Genus,
-    GeographicArea,
-    InfraSpecies,
-    LifeFormDescription,
-    Plant,
-    Publication,
-    Region,
-    Species,
-    Taxon,
-)
+from biokb_wcvp.db.models import Base, Plant
 
 path_to_data = os.path.join("tests", "data/test_data", "test_data.csv")
 path_to_db = os.path.join("tests", "dbs", "test.db")
@@ -36,14 +20,6 @@ def dbm() -> DbManager:
     return DbManager(engine, path_to_data)
 
 
-def test_create_db(dbm: DbManager):
-    """Test if a database is created."""
-    if os.path.exists(path_to_db):
-        os.remove(path_to_db)
-    dbm.create_db()
-    assert os.path.exists(path_to_db)
-
-
 def test_df_manager(dbm: DbManager):
     """Test if DBManager takes the parameter and return the correct values."""
     assert isinstance(dbm.engine, Engine)
@@ -52,8 +28,7 @@ def test_df_manager(dbm: DbManager):
 
 def test_import_family(dbm: DbManager):
     """Test if a family can be imported."""
-    dbm.drop_db()
-    dbm.create_db()
+    dbm.recreate_db()
     test_family_name = "test_family"
     with dbm.Session.begin() as session:
         session.add(Family(name=test_family_name))

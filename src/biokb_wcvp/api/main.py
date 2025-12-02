@@ -75,7 +75,7 @@ def verify_credentials(credentials: HTTPBasicCredentials = Depends(HTTPBasic()))
 @app.post(path="/import_data/", response_model=dict[str, int], tags=[Tag.DBMANAGE])
 def import_data(
     credentials: HTTPBasicCredentials = Depends(verify_credentials),
-) -> dict[str, int]:
+) -> Dict[str, int | None]:
     """Load a tsv file in database."""
     dbm = manager.DbManager()
     return dbm.import_data()
@@ -150,24 +150,20 @@ async def search_locations(
 
 @app.get(
     "/locations/continent/",
-    response_model=list[schemas.Contient],
+    response_model=list[schemas.Continent],
     tags=[Tag.LOCATION],
 )
 async def search_continents(
-    continent_code_l1: Optional[int] = None,
-    continent: Optional[str] = None,
+    code_l1: Optional[int] = None,
+    name: Optional[str] = None,
     session: Session = Depends(get_session),
 ):
-    """
-    Search continents.
-    """
-    query = session.query(
-        models.Location.continent, models.Location.continent_code_l1
-    ).group_by(models.Location.continent, models.Location.continent_code_l1)
-    if continent_code_l1:
-        query = query.filter(models.Location.continent_code_l1 == continent_code_l1)
-    if continent:
-        query = query.filter(models.Location.continent.like(continent))
+    """Search continents (and parts) by filtering TDWG (Biodiversity Information Standards) code_l1 and name."""
+    query = session.query(models.Continent)
+    if code_l1:
+        query = query.filter(models.Continent.code_l1 == code_l1)
+    if name:
+        query = query.filter(models.Continent.name.like(name))
     return query.all()
 
 
@@ -177,20 +173,16 @@ async def search_continents(
     tags=[Tag.LOCATION],
 )
 async def search_regions(
-    region_code_l2: Optional[int] = None,
-    region: Optional[str] = None,
+    code_l2: Optional[int] = None,
+    name: Optional[str] = None,
     session: Session = Depends(get_session),
 ):
-    """
-    Search regions.
-    """
-    query = session.query(
-        models.Location.region, models.Location.region_code_l2
-    ).group_by(models.Location.region, models.Location.region_code_l2)
-    if region_code_l2:
-        query = query.filter(models.Location.region_code_l2 == region_code_l2)
-    if region:
-        query = query.filter(models.Location.region.like(region))
+    """Search regions by filtering TDWG (Biodiversity Information Standards) code_l2 and name."""
+    query = session.query(models.Region)
+    if code_l2:
+        query = query.filter(models.Region.code_l2 == code_l2)
+    if name:
+        query = query.filter(models.Region.name.like(name))
     return query.all()
 
 
@@ -200,20 +192,16 @@ async def search_regions(
     tags=[Tag.LOCATION],
 )
 async def search_areas(
-    area_code_l3: Optional[int] = None,
-    area: Optional[str] = None,
+    code_l3: Optional[str] = None,
+    name: Optional[str] = None,
     session: Session = Depends(get_session),
 ):
-    """
-    Search areas.
-    """
-    query = session.query(models.Location.area, models.Location.area_code_l3).group_by(
-        models.Location.area, models.Location.area_code_l3
-    )
-    if area_code_l3:
-        query = query.filter(models.Location.area_code_l3 == area_code_l3)
-    if area:
-        query = query.filter(models.Location.area.like(area))
+    """Search areas by filtering TDWG (Biodiversity Information Standards) code_l3 and name."""
+    query = session.query(models.Area)
+    if code_l3:
+        query = query.filter(models.Area.code_l3 == code_l3)
+    if name:
+        query = query.filter(models.Area.name.like(name))
     return query.all()
 
 
@@ -225,7 +213,7 @@ async def search_areas(
 async def search_plant_location(
     offset: int = 0,
     limit: Annotated[int, Query(le=100)] = 10,
-    wcvp_id: Optional[int] = None,
+    plant_name_id: Optional[int] = None,
     ipni_id: Optional[str] = None,
     family: Optional[str] = None,
     taxon_name: Optional[str] = None,
@@ -244,58 +232,71 @@ async def search_plant_location(
 
     stmt = (
         select(
-            models.Plant.id.label("plant_id"),
+            models.Plant.plant_name_id,
             models.Plant.ipni_id,
-            models.Plant.family,
+            models.Family.name.label("family"),
             models.Plant.taxon_name,
-            models.Plant.taxon_rank,
-            models.Plant.infraspecific_rank,
+            models.TaxonRank.name.label("taxon_rank"),
+            models.InfraspecificRank.name.label("infraspecific_rank"),
             models.Plant.infraspecies,
             models.Plant.powo_id,
-            models.Location.continent,
-            models.Location.region,
-            models.Location.area,
-            models.Location.area_code_l3,
+            models.Continent.name.label("continent"),
+            models.Region.name.label("region"),
+            models.Area.name.label("area"),
+            models.Location.code_l3,
         )
         .select_from(models.Plant)
-        .join(models.Location)
+        .join(
+            models.Location, models.Plant.plant_name_id == models.Location.wcvp_plant_id
+        )
+        .outerjoin(models.Family, models.Plant.family_id == models.Family.id)
+        .outerjoin(models.TaxonRank, models.Plant.taxon_rank_id == models.TaxonRank.id)
+        .outerjoin(
+            models.InfraspecificRank,
+            models.Plant.infraspecific_rank_id == models.InfraspecificRank.id,
+        )
+        .outerjoin(
+            models.Continent, models.Location.code_l1 == models.Continent.code_l1
+        )
+        .outerjoin(models.Region, models.Location.code_l2 == models.Region.code_l2)
+        .outerjoin(models.Area, models.Location.code_l3 == models.Area.code_l3)
     )
     stmt = stmt.group_by(
-        models.Plant.id,
+        models.Plant.plant_name_id,
         models.Plant.ipni_id,
-        models.Plant.family,
+        models.Family.name,
         models.Plant.taxon_name,
-        models.Plant.taxon_rank,
-        models.Plant.infraspecific_rank,
+        models.TaxonRank.name,
+        models.InfraspecificRank.name,
         models.Plant.infraspecies,
         models.Plant.powo_id,
-        models.Location.continent,
-        models.Location.region,
-        models.Location.area,
-        models.Location.area_code_l3,
+        models.Continent.name,
+        models.Region.name,
+        models.Area.name,
+        models.Location.code_l3,
     )
-    if wcvp_id:
-        stmt = stmt.filter(models.Plant.id == wcvp_id)
+    if plant_name_id:
+        stmt = stmt.filter(models.Plant.plant_name_id == plant_name_id)
     if ipni_id:
         stmt = stmt.filter(models.Plant.ipni_id == ipni_id)
     if family:
-        stmt = stmt.filter(models.Plant.family.like(family))
+        stmt = stmt.filter(models.Family.name.like(family))
     if taxon_name:
         stmt = stmt.filter(models.Plant.taxon_name.like(taxon_name))
     if taxon_rank:
-        stmt = stmt.filter(models.Plant.taxon_rank.like(taxon_rank))
+        stmt = stmt.filter(models.TaxonRank.name.like(taxon_rank))
     if infraspecific_rank:
-        stmt = stmt.filter(models.Plant.infraspecific_rank.like(infraspecific_rank))
+        stmt = stmt.filter(models.InfraspecificRank.name.like(infraspecific_rank))
     if infraspecies:
         stmt = stmt.filter(models.Plant.infraspecies.like(infraspecies))
     if powo_id:
         stmt = stmt.filter(models.Plant.powo_id.like(powo_id))
     if continent:
-        stmt = stmt.filter(models.Location.continent.like(continent))
+        stmt = stmt.filter(models.Continent.name.like(continent))
     if region:
-        stmt = stmt.filter(models.Location.region.like(region))
+        stmt = stmt.filter(models.Region.name.like(region))
     if area:
-        stmt = stmt.filter(models.Location.area.like(area))
+        stmt = stmt.filter(models.Area.name.like(area))
 
     count = session.execute(
         select(func.count()).select_from(stmt.subquery())
@@ -315,32 +316,34 @@ async def search_plant_location(
     tags=[Tag.LOCATION, Tag.PLANT],
 )
 async def plant_locations_statistics(
-    plant_id: Optional[int] = None,
+    plant_name_id: Optional[int] = None,
     ipni_id: Optional[str] = None,
     taxon_name: Optional[str] = None,
     powo_id: Optional[str] = None,
     session: Session = Depends(get_session),
 ):
     """
-    Search plant and location in one step.
+    Get plant distribution statistics by area.
     """
-    if not any([plant_id, ipni_id, taxon_name, powo_id]):
+    if not any([plant_name_id, ipni_id, taxon_name, powo_id]):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="At least one query parameter (plant_id, ipni_id, taxon_name, powo_id) must be provided.",
+            detail="At least one query parameter (plant_name_id, ipni_id, taxon_name, powo_id) must be provided.",
         )
     stmt = (
-        select(func.count().label("species_count"), models.Location.area_code_l3)
+        select(func.count().label("species_count"), models.Location.code_l3)
         .select_from(models.Plant)
-        .join(models.Location)
+        .join(
+            models.Location, models.Plant.plant_name_id == models.Location.wcvp_plant_id
+        )
     )
-    if plant_id:
-        stmt = stmt.filter(models.Plant.id == plant_id)
+    if plant_name_id:
+        stmt = stmt.filter(models.Plant.plant_name_id == plant_name_id)
     if ipni_id:
         stmt = stmt.filter(models.Plant.ipni_id == ipni_id)
     if taxon_name:
         stmt = stmt.filter(models.Plant.taxon_name.like(taxon_name))
     if powo_id:
         stmt = stmt.filter(models.Plant.powo_id == powo_id)
-    stmt = stmt.group_by(models.Location.area_code_l3)
+    stmt = stmt.group_by(models.Location.code_l3)
     return session.execute(stmt)

@@ -6,6 +6,7 @@ from typing import Annotated, Dict, Optional
 
 from fastapi import Depends, FastAPI, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -13,7 +14,10 @@ from sqlalchemy.orm import Session
 from biokb_wcvp.api import schemas
 from biokb_wcvp.api.query_tools import build_dynamic_query
 from biokb_wcvp.api.tags import Tag
+from biokb_wcvp.constants import ZIPPED_TTLS_PATH
 from biokb_wcvp.db import manager, models
+from biokb_wcvp.rdf.neo4j_importer import Neo4jImporter
+from biokb_wcvp.rdf.turtle import TurtleCreator
 
 # Configure logging
 logging.basicConfig(
@@ -76,9 +80,52 @@ def verify_credentials(credentials: HTTPBasicCredentials = Depends(HTTPBasic()))
 def import_data(
     credentials: HTTPBasicCredentials = Depends(verify_credentials),
 ) -> Dict[str, int | None]:
-    """Load a tsv file in database."""
+    """Download data and import it into the database."""
     dbm = manager.DbManager()
     return dbm.import_data()
+
+
+@app.get(path="/download_ttls/", tags=[Tag.DBMANAGE])
+async def export_ttls(
+    credentials: HTTPBasicCredentials = Depends(verify_credentials),
+) -> FileResponse:
+    """Create zipped RDF turtle files (if not exists) for WCVP data export."""
+    dbm = manager.DbManager()
+    if not os.path.exists(ZIPPED_TTLS_PATH):
+        tc = TurtleCreator(dbm.engine)
+        tc.create_all_ttls()
+
+    return FileResponse(
+        path=ZIPPED_TTLS_PATH, filename="wcvp_ttls.zip", media_type="application/zip"
+    )
+
+
+@app.get(path="/import_into_neo4j/", tags=[Tag.DBMANAGE])
+async def import_into_neo4j(
+    credentials: HTTPBasicCredentials = Depends(verify_credentials),
+):
+    """Create zipped RDF turtle files (if not exists) for WCVP data export."""
+    dbm = manager.DbManager()
+    # check if database exists and has data
+    plant_table_exists = dbm.engine.dialect.has_table(
+        dbm.engine.connect(), models.Plant.__tablename__
+    )
+    if not plant_table_exists:
+        dbm.import_data()
+    else:
+        with dbm.Session() as session:
+            result = session.query(models.Plant).count()
+            if result == 0:
+                dbm.import_data()
+
+    if not os.path.exists(ZIPPED_TTLS_PATH):
+        tc = TurtleCreator(dbm.engine)
+        tc.create_all_ttls()
+
+    ni = Neo4jImporter()
+    ni.import_ttls(delete_existing_graph=True)
+
+    return True
 
 
 @app.get(

@@ -1,14 +1,20 @@
 import logging
 import zipfile
-from os import path
+from os import getenv, listdir, path
 from typing import LiteralString, cast
 
-from neo4j import GraphDatabase, Query
+from neo4j import GraphDatabase
 from rdflib import Graph
 from rdflib_neo4j import HANDLE_VOCAB_URI_STRATEGY, Neo4jStore, Neo4jStoreConfig
 from tqdm import tqdm
 
-from biokb_wcvp.constants import BASIC_NODE_LABEL, ZIPPED_TTLS_PATH
+from biokb_wcvp.constants import (
+    BASIC_NODE_LABEL,
+    NEO4J_PASSWORD,
+    NEO4J_URI,
+    NEO4J_USER,
+    ZIPPED_TTLS_PATH,
+)
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -17,17 +23,42 @@ logger: logging.Logger = logging.getLogger(name=__name__)
 
 
 class Neo4jImporter:
+
     def __init__(
         self,
-        neo4j_uri: str,
-        neo4j_user: str,
-        neo4j_pwd: str,
+        neo4j_uri: str | None = None,
+        neo4j_user: str | None = None,
+        neo4j_pwd: str | None = None,
     ) -> None:
-        self.neo4j_uri = neo4j_uri
-        self.neo4j_user = neo4j_user
-        self.neo4j_pwd = neo4j_pwd
+        """
+        Initialize the Neo4j importer with connection credentials.
+        Args:
+            neo4j_uri (str | None, optional): Neo4j database URI.
+                Defaults to NEO4J_URI environment variable or NEO4J_URI constant.
+            neo4j_user (str | None, optional): Neo4j database username.
+                Defaults to NEO4J_USER environment variable or NEO4J_USER constant.
+            neo4j_pwd (str | None, optional): Neo4j database password.
+                Defaults to NEO4J_PASSWORD environment variable or NEO4J_PASSWORD constant.
+        Attributes:
+            neo4j_uri (str): The Neo4j connection URI used by the driver.
+            neo4j_user (str): The Neo4j username for authentication.
+            neo4j_pwd (str): The Neo4j password for authentication.
+            driver: Neo4j GraphDatabase driver instance for executing queries.
+        Note:
+            Connection parameters are resolved with the following priority:
+            1. Explicitly provided parameters
+            2. Environment variables (NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD)
+            3. Module-level constants (NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD)
+        """
+        self.neo4j_uri = neo4j_uri if neo4j_uri else getenv("NEO4J_URI", NEO4J_URI)
+        self.neo4j_user = neo4j_user if neo4j_user else getenv("NEO4J_USER", NEO4J_USER)
+        self.neo4j_pwd = (
+            neo4j_pwd if neo4j_pwd else getenv("NEO4J_PASSWORD", NEO4J_PASSWORD)
+        )
 
-        self.driver = GraphDatabase.driver(neo4j_uri, auth=(neo4j_user, neo4j_pwd))
+        self.driver = GraphDatabase.driver(
+            self.neo4j_uri, auth=(self.neo4j_user, self.neo4j_pwd)
+        )
 
     def _delete_nodes_with_label(self, node_label: str = BASIC_NODE_LABEL):
         """Delete an existing graph in Neo4J.
@@ -65,6 +96,16 @@ class Neo4jImporter:
                 neo4j_db.parse(p, format="ttl")
         elif path_or_list.endswith(".ttl"):
             neo4j_db.parse(path_or_list, format="ttl")
+        elif path.isdir(path_or_list):
+            ttl_files = [
+                path.join(path_or_list, f)
+                for f in listdir(path_or_list)
+                if f.endswith(".ttl")
+            ]
+            with tqdm(ttl_files) as pbar:
+                for ttl_file in pbar:
+                    pbar.set_description(f"Processing {ttl_file}")
+                    neo4j_db.parse(ttl_file, format="ttl")
         elif path_or_list.endswith(".zip"):
             self.__import_turtle_files_from_zip(path, neo4j_db)
         neo4j_db.close(True)

@@ -49,7 +49,7 @@ class DbManager:
             engine: SQLAlchemy database engine instance.
             path_to_file (str): Path to the directory containing TSV files.
         """
-        connection_str = os.getenv("CONNECTION_STR", DB_DEFAULT_CONNECTION_STR)
+        connection_str = os.getenv("MYSQL_CONNECTION_STR", DB_DEFAULT_CONNECTION_STR)
         self.engine = engine if engine else create_engine(connection_str)
         logger.info(f"Using database connection: {self.engine.url}")
         self.Session = sessionmaker(bind=self.engine)

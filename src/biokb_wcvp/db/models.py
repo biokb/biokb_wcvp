@@ -139,9 +139,11 @@ class Plant(Base):
         comment="The species epithet which is combined with the genus name to make a binomial name for a species. Empty when the taxon name is at the rank of genus.",
     )
     genus_hybrid: Mapped[Optional[str]] = mapped_column(
+        String(255),
         comment="Indicates whether the genus is a hybrid (×) or graft-chimaera (+). Empty when the genus is not a hybrid or graft-chimaera.",
     )
     species_hybrid: Mapped[Optional[str]] = mapped_column(
+        String(255),
         comment="Indicates whether the species is a hybrid (×) or graft-chimaera (+). Empty when the species is not a hybrid or graft-chimaera.",
     )
     infraspecies: Mapped[Optional[str]] = mapped_column(

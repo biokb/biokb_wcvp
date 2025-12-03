@@ -14,7 +14,8 @@ cd biokb_wcvp
 uv venv
 source .venv/bin/activate
 uv pip install podman-compose
-podman-compose up -d
+podman-compose -f docker-compose.db_neo.yml up -d
+podman-compose up --build -d
 ```
 
-Open http://localhost:8080/docs (perhaps there will be a delay, please reload after some seconds)
+Open http://localhost:8000/docs (perhaps there will be a delay, please reload after some seconds)

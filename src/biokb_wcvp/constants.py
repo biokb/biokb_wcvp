@@ -26,3 +26,7 @@ TAXONOMY_DATA_FOLDER = os.path.join(BIOKB_FOLDER, "taxtree", "data")
 
 BASIC_NODE_LABEL = "DbWCVP"
 EXPORT_FOLDER = os.path.join(DATA_FOLDER, "ttls")
+
+NEO4J_USER = "neo4j"
+NEO4J_PASSWORD = "neo4j_password"
+NEO4J_URI = "bolt://localhost:7687"

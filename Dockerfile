@@ -10,4 +10,4 @@ COPY pyproject.toml README.md ./
 RUN pip install .
 
 # Start fastapi server
-CMD ["fastapi", "run","src/biokb_wcvp/api/main.py"]
+CMD ["uvicorn", "src.biokb_wcvp.api.main:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -93,7 +93,7 @@ async def export_ttls(
     dbm = manager.DbManager()
     if not os.path.exists(ZIPPED_TTLS_PATH):
         tc = TurtleCreator(dbm.engine)
-        tc.create_all_ttls()
+        tc.create_ttls()
 
     return FileResponse(
         path=ZIPPED_TTLS_PATH, filename="wcvp_ttls.zip", media_type="application/zip"
@@ -120,7 +120,7 @@ async def import_into_neo4j(
 
     if not os.path.exists(ZIPPED_TTLS_PATH):
         tc = TurtleCreator(dbm.engine)
-        tc.create_all_ttls()
+        tc.create_ttls()
 
     ni = Neo4jImporter()
     ni.import_ttls(delete_existing_graph=True)

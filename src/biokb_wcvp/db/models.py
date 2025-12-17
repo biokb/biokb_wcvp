@@ -419,6 +419,9 @@ class GeoLocationLevel1(Base):
         back_populates="continent",
     )
 
+    def __repr__(self) -> str:
+        return f"<GeoLocationLevel1: code={self.code}, name={self.name}>"
+
 
 class GeoLocationLevel2(Base):
     __tablename__ = table_prefix + "geo_location_level_2"
@@ -441,6 +444,9 @@ class GeoLocationLevel2(Base):
         back_populates="region",
     )
 
+    def __repr__(self) -> str:
+        return f"<GeoLocationLevel2: code={self.code}, name={self.name}>"
+
 
 class GeoLocationLevel3(Base):
     __tablename__ = table_prefix + "geo_location_level_3"
@@ -461,3 +467,6 @@ class GeoLocationLevel3(Base):
     region: Mapped[Optional["GeoLocationLevel2"]] = relationship(
         back_populates="areas",
     )
+
+    def __repr__(self) -> str:
+        return f"<GeoLocationLevel3: code={self.code}, name={self.name}>"

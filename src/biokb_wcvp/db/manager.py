@@ -2,6 +2,7 @@ import io
 import logging
 import os
 import re
+import shutil
 import zipfile
 from datetime import datetime
 from io import BytesIO
@@ -49,7 +50,7 @@ class DbManager:
             engine: SQLAlchemy database engine instance.
             path_to_file (str): Path to the directory containing TSV files.
         """
-        connection_str = os.getenv("MYSQL_CONNECTION_STR", DB_DEFAULT_CONNECTION_STR)
+        connection_str = os.getenv("CONNECTION_STR", DB_DEFAULT_CONNECTION_STR)
         self.engine = engine if engine else create_engine(connection_str)
         logger.info(f"Using database connection: {self.engine.url}")
         self.Session = sessionmaker(bind=self.engine)
@@ -76,6 +77,10 @@ class DbManager:
         logger.info("Locations imported successfully.")
         self.update_plant_tax_ids()
         logger.info("Tax IDs updated successfully.")
+        self.import_wgsrpd()
+        logger.info("WGS-RPD data imported successfully.")
+        if os.path.exists(DEFAULT_PATH_UNZIPPED_DATA_FOLDER):
+            shutil.rmtree(DEFAULT_PATH_UNZIPPED_DATA_FOLDER)
         return imported
 
     def extract_and_insert(

@@ -11,13 +11,14 @@ from typing import List, Type, TypeVar
 from urllib.parse import urlparse
 
 from rdflib import RDF, XSD, Graph, Literal, Namespace, URIRef
-from sqlalchemy import Engine
+from sqlalchemy import Engine, create_engine, select
 from sqlalchemy.orm import sessionmaker
 from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 
 
+from biokb_wcvp import constants
 from biokb_wcvp.constants import (
     BASIC_NODE_LABEL,
     DATA_FOLDER,
@@ -61,20 +62,20 @@ def get_empty_graph() -> Graph:
     """
     graph = Graph()
     # Bind generic ontology namespaces
-    graph.bind(prefix="node", namespace=namespaces.node)
-    graph.bind(prefix="rel", namespace=namespaces.relation)
-    graph.bind(prefix="xs", namespace=XSD)
+    graph.bind(prefix="n", namespace=namespaces.NODE_NS)
+    graph.bind(prefix="r", namespace=namespaces.REL_NS)
+    graph.bind(prefix="x", namespace=XSD)
 
     # Bind geographic namespaces (TDWG World Geographical Scheme)
-    graph.bind(prefix="con", namespace=namespaces.CONTINENT_NS)
-    graph.bind(prefix="reg", namespace=namespaces.REGION_NS)
-    graph.bind(prefix="are", namespace=namespaces.AREA_NS)
+    graph.bind(prefix="c", namespace=namespaces.CONTINENT_NS)
+    graph.bind(prefix="e", namespace=namespaces.REGION_NS)
+    graph.bind(prefix="a", namespace=namespaces.AREA_NS)
 
     # Bind taxonomic and identifier namespaces
     graph.bind(prefix="p", namespace=get_namespace(models.Plant))
-    graph.bind(prefix="po", namespace=namespaces.POWO)
-    graph.bind(prefix="ip", namespace=namespaces.IPNI)
-    graph.bind(prefix="nc", namespace=namespaces.NCBI_TAXON)
+    graph.bind(prefix="o", namespace=namespaces.POWO_NS)
+    graph.bind(prefix="i", namespace=namespaces.IPNI_NS)
+    graph.bind(prefix="t", namespace=namespaces.NCBI_TAXON_NS)
 
     return graph
 
@@ -129,10 +130,13 @@ class TurtleCreator:
             self.__data_folder = DATA_FOLDER
 
         # Set up database engine and session factory
-        self.__engine = engine
+        connection_str = os.getenv(
+            "CONNECTION_STR", constants.DB_DEFAULT_CONNECTION_STR
+        )
+        self.__engine = engine if engine else create_engine(str(connection_str))
         self.Session = sessionmaker(bind=self.__engine)
 
-    def create_all_ttls(self) -> str:
+    def create_ttls(self) -> str:
         """Create all RDF turtle files and package them into a zip archive.
 
         This method orchestrates the complete export process:
@@ -147,9 +151,9 @@ class TurtleCreator:
         logging.info("Starting turtle file generation process.")
 
         # Generate individual turtle files in order
-        self.create_tdwg_locations()  # Geographic hierarchy first
-        self.create_plants()  # Then taxonomic data
-        self.create_locations()  # Finally, distribution links
+        self.create_tdwg_locations()  # Geographic hierarchy
+        self.create_locations()  # distribution links
+        self.create_plants()  # taxonomic data
 
         # Package everything into a zip file
         path_to_zip_file: str = self.create_zip_from_all_ttls()
@@ -166,49 +170,42 @@ class TurtleCreator:
         graph = get_empty_graph()
 
         with self.Session() as session:
-            # Query only accepted plant names (not synonyms)
-            plants: List[models.Plant] = (
-                session.query(models.Plant)
-                .where(
-                    models.Plant.accepted_plant_name_id == models.Plant.plant_name_id
-                )
-                .all()
+            stmt = select(
+                models.Location.wcvp_plant_id,
+                models.Location.code_l1,
+                models.Location.code_l2,
+                models.Location.code_l3,
             )
+            results = session.execute(stmt).all()
 
             plant_namespace: Namespace = get_namespace(models.Plant)
 
-            for plant in tqdm(plants, desc="Creating plant-location links"):
-                p: URIRef = plant_namespace[str(plant.plant_name_id)]
-
-                # Link to the most specific geographic level available for each location
-                for location in plant.locations:
-                    if location.extinct == True:
-                        continue  # Skip extinct locations
-                    if location.code_l3:  # Level 3: Botanical area (most specific)
-                        graph.add(
-                            triple=(
-                                p,
-                                namespaces.relation["HAS_LOCATION"],
-                                namespaces.AREA_NS[str(location.code_l3)],
-                            )
+            for r in tqdm(results, desc="Creating plant-location links"):
+                p: URIRef = plant_namespace[str(r.wcvp_plant_id)]
+                if r.code_l3:
+                    graph.add(
+                        triple=(
+                            p,
+                            namespaces.REL_NS["HAS_LOCATION"],
+                            namespaces.AREA_NS[str(r.code_l3)],
                         )
-
-                    elif location.code_l2:  # Level 2: Region
-                        graph.add(
-                            triple=(
-                                p,
-                                namespaces.relation["HAS_LOCATION"],
-                                namespaces.REGION_NS[str(location.code_l2)],
-                            )
+                    )
+                elif r.code_l2:
+                    graph.add(
+                        triple=(
+                            p,
+                            namespaces.REL_NS["HAS_LOCATION"],
+                            namespaces.REGION_NS[r.code_l2],
                         )
-                    elif location.code_l1:  # Level 1: Continent (least specific)
-                        graph.add(
-                            triple=(
-                                p,
-                                namespaces.relation["HAS_LOCATION"],
-                                namespaces.CONTINENT_NS[str(location.code_l1)],
-                            )
+                    )
+                elif r.code_l1:
+                    graph.add(
+                        triple=(
+                            p,
+                            namespaces.REL_NS["HAS_LOCATION"],
+                            namespaces.CONTINENT_NS[r.code_l1],
                         )
+                    )
 
         # Serialize and save the graph
         ttl_path = os.path.join(self.__ttls_folder, "wcvp_locations.ttl")
@@ -247,26 +244,26 @@ class TurtleCreator:
                     triple=(
                         p,
                         RDF.type,
-                        namespaces.node[models.Plant.__name__],
+                        namespaces.NODE_NS[models.Plant.__name__],
                     )
                 )
-                graph.add(triple=(p, RDF.type, namespaces.node[BASIC_NODE_LABEL]))
+                graph.add(triple=(p, RDF.type, namespaces.NODE_NS[BASIC_NODE_LABEL]))
 
                 # Link to external plant name databases if available
                 if plant.ipni_id:
                     graph.add(
                         triple=(
                             p,
-                            namespaces.relation["HAS_IPNI"],
-                            namespaces.IPNI[plant.ipni_id],
+                            namespaces.REL_NS["SAME_AS"],
+                            namespaces.IPNI_NS[plant.ipni_id],
                         )
                     )
                 if plant.powo_id:
                     graph.add(
                         triple=(
                             p,
-                            namespaces.relation["HAS_POWO"],
-                            namespaces.POWO[plant.powo_id],
+                            namespaces.REL_NS["SAME_AS"],
+                            namespaces.POWO_NS[plant.powo_id],
                         )
                     )
 
@@ -274,7 +271,7 @@ class TurtleCreator:
                 graph.add(
                     triple=(
                         p,
-                        namespaces.relation["taxon_name"],
+                        namespaces.REL_NS["taxon_name"],
                         Literal(lexical_or_value=plant.taxon_name, datatype=XSD.string),
                     )
                 )
@@ -284,7 +281,7 @@ class TurtleCreator:
                     graph.add(
                         triple=(
                             p,
-                            namespaces.relation["HAS_PARENT"],
+                            namespaces.REL_NS["HAS_PARENT"],
                             plant_namespace[str(plant.parent_plant_name_id)],
                         )
                     )
@@ -294,8 +291,8 @@ class TurtleCreator:
                     graph.add(
                         triple=(
                             p,
-                            namespaces.relation["HAS_NCBI_TAXON"],
-                            namespaces.NCBI_TAXON[str(int(plant.tax_id))],
+                            namespaces.REL_NS["SAME_AS"],
+                            namespaces.NCBI_TAXON_NS[str(int(plant.tax_id))],
                         )
                     )
 
@@ -328,12 +325,12 @@ class TurtleCreator:
             ):
                 # Create Level 1 (Continent) node
                 l1: URIRef = namespaces.CONTINENT_NS[str(continent.code)]
-                graph.add(triple=(l1, RDF.type, namespaces.node["Continent"]))
-                graph.add(triple=(l1, RDF.type, namespaces.node["DbTdwgLocation"]))
+                graph.add(triple=(l1, RDF.type, namespaces.NODE_NS["Continent"]))
+                graph.add(triple=(l1, RDF.type, namespaces.NODE_NS["DbTdwgLocation"]))
                 graph.add(
                     triple=(
                         l1,
-                        namespaces.relation["continent"],
+                        namespaces.REL_NS["continent"],
                         Literal(continent.name, datatype=XSD.string),
                     )
                 )
@@ -341,12 +338,14 @@ class TurtleCreator:
                 # Process Level 2 (Regions) within this continent
                 for region in continent.regions:
                     l2: URIRef = namespaces.REGION_NS[str(region.code)]
-                    graph.add(triple=(l2, RDF.type, namespaces.node["Region"]))
-                    graph.add(triple=(l2, RDF.type, namespaces.node["DbTdwgLocation"]))
+                    graph.add(triple=(l2, RDF.type, namespaces.NODE_NS["Region"]))
+                    graph.add(
+                        triple=(l2, RDF.type, namespaces.NODE_NS["DbTdwgLocation"])
+                    )
                     graph.add(
                         triple=(
                             l2,
-                            namespaces.relation["continent"],
+                            namespaces.REL_NS["continent"],
                             Literal(continent.name, datatype=XSD.string),
                         )
                     )
@@ -354,7 +353,7 @@ class TurtleCreator:
                     graph.add(
                         triple=(
                             l2,
-                            namespaces.relation["region"],
+                            namespaces.REL_NS["region"],
                             Literal(region.name, datatype=XSD.string),
                         )
                     )
@@ -363,7 +362,7 @@ class TurtleCreator:
                     graph.add(
                         triple=(
                             l1,
-                            namespaces.relation["HAS_REGION"],
+                            namespaces.REL_NS["HAS_REGION"],
                             l2,
                         )
                     )
@@ -371,14 +370,14 @@ class TurtleCreator:
                     # Process Level 3 (Areas) within this region
                     for area in region.areas:
                         l3: URIRef = namespaces.AREA_NS[str(area.code)]
-                        graph.add(triple=(l3, RDF.type, namespaces.node["Area"]))
+                        graph.add(triple=(l3, RDF.type, namespaces.NODE_NS["Area"]))
                         graph.add(
-                            triple=(l3, RDF.type, namespaces.node["DbTdwgLocation"])
+                            triple=(l3, RDF.type, namespaces.NODE_NS["DbTdwgLocation"])
                         )
                         graph.add(
                             triple=(
                                 l3,
-                                namespaces.relation["continent"],
+                                namespaces.REL_NS["continent"],
                                 Literal(continent.name, datatype=XSD.string),
                             )
                         )
@@ -386,14 +385,14 @@ class TurtleCreator:
                         graph.add(
                             triple=(
                                 l3,
-                                namespaces.relation["region"],
+                                namespaces.REL_NS["region"],
                                 Literal(region.name, datatype=XSD.string),
                             )
                         )
                         graph.add(
                             triple=(
                                 l3,
-                                namespaces.relation["area"],
+                                namespaces.REL_NS["area"],
                                 Literal(area.name, datatype=XSD.string),
                             )
                         )
@@ -401,7 +400,7 @@ class TurtleCreator:
                         graph.add(
                             triple=(
                                 l2,
-                                namespaces.relation["HAS_AREA"],
+                                namespaces.REL_NS["HAS_AREA"],
                                 l3,
                             )
                         )

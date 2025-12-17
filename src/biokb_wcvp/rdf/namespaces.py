@@ -1,16 +1,15 @@
-from ast import Name
-
 from rdflib.namespace import Namespace
 
-IPNI = Namespace("https://www.ipni.org/id#")
-POWO = Namespace("https://powo.science.kew.org/id#")
-WCVP = Namespace("https://biokb.scai.fraunhoferde.org/wcvp/id/")
+IPNI_NS = Namespace("https://www.ipni.org/n/")
+POWO_NS = Namespace("https://powo.science.kew.org/taxon/")
+WCVP_NS = Namespace("https://biokb.scai.fraunhoferde.org/wcvp/id/")
 BASE_URI = "https://biokb.scai.fraunhofer.de/wcvp/"
-NCBI_TAXON = Namespace("http://purl.obolibrary.org/obo/NCBITaxon_")
-node = Namespace(f"{BASE_URI}/node#")
-relation = Namespace(f"{BASE_URI}/relation#")
+NCBI_TAXON_NS = Namespace("http://purl.obolibrary.org/obo/NCBITaxon_")
+NODE_NS = Namespace(f"{BASE_URI}/node#")
+REL_NS = Namespace(f"{BASE_URI}/relation#")
 
-WGSRPD_BASE = "http://rs.tdwg.org/wgsrpd/"
+# check http://www.tdwg.org/standards/109/ for more details
+WGSRPD_BASE = "http://www.tdwg.org/standards/109/"
 
 CONTINENT_NS = Namespace(f"{WGSRPD_BASE}level1/")  # continents of level 1
 REGION_NS = Namespace(f"{WGSRPD_BASE}level2/")  # regions of level 2

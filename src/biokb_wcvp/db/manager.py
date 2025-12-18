@@ -19,6 +19,7 @@ from biokb_wcvp.constants import (
     DEFAULT_PATH_UNZIPPED_DATA_FOLDER,
     DISTRIBUTION_FILE,
     NAMES_FILE,
+    PATH_TO_ZIP_FILE,
     TAXONOMY_DATA_FOLDER,
     TAXONOMY_URL,
 )
@@ -62,11 +63,10 @@ class DbManager:
 
     def recreate_db(self):
         """Drop all tables and recreate them."""
-        logger.info("Recreating database")
         models.Base.metadata.drop_all(bind=self.engine)
         models.Base.metadata.create_all(bind=self.engine)
 
-    def import_data(self, force_download=False):
+    def import_data(self, force_download: bool = False, keep_files: bool = False):
         self.recreate_db()
         download_and_unzip(force_download)
 
@@ -79,9 +79,12 @@ class DbManager:
         logger.info("Tax IDs updated successfully.")
         self.import_wgsrpd()
         logger.info("WGS-RPD data imported successfully.")
+
         if os.path.exists(DEFAULT_PATH_UNZIPPED_DATA_FOLDER):
             shutil.rmtree(DEFAULT_PATH_UNZIPPED_DATA_FOLDER)
-        return imported
+        if not keep_files:
+            if os.path.exists(PATH_TO_ZIP_FILE):
+                os.remove(PATH_TO_ZIP_FILE)
 
     def extract_and_insert(
         self, df: pd.DataFrame, column_name: str, model: Type[models.Base]

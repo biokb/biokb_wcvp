@@ -15,13 +15,16 @@ ZIPPED_TTLS_PATH = os.path.join(DATA_FOLDER, "ttls.zip")
 DOWNLOAD_URL = "https://sftp.kew.org/pub/data-repositories/WCVP/wcvp.zip"
 PATH_TO_ZIP_FILE = os.path.join(DATA_FOLDER, "wcvp.zip")
 DEFAULT_PATH_UNZIPPED_DATA_FOLDER = os.path.join(DATA_FOLDER, "unzipped")
-DB_DEFAULT_CONNECTION_STR = "sqlite:///" + os.path.join(BIOKB_FOLDER, "biokb.db")
+SQLITE_PATH = os.path.join(BIOKB_FOLDER, "biokb.db")
+DB_DEFAULT_CONNECTION_STR = "sqlite:///" + SQLITE_PATH
 
 
 DISTRIBUTION_FILE = "wcvp_distribution.csv"
 NAMES_FILE = "wcvp_names.csv"
 
+
 TAXONOMY_URL = "https://ftp.ncbi.nlm.nih.gov/pub/taxonomy/taxdmp.zip"
+# TODO: check other libs if they also load data to this folder
 TAXONOMY_DATA_FOLDER = os.path.join(BIOKB_FOLDER, "taxtree", "data")
 
 BASIC_NODE_LABEL = "DbWCVP"

@@ -25,8 +25,8 @@ def download_and_unzip(force_download: bool = False) -> str:
     """
     os.makedirs(DATA_FOLDER, exist_ok=True)
     if force_download or not os.path.exists(PATH_TO_ZIP_FILE):
+        logger.info(f"Downloading data")
         urllib.request.urlretrieve(DOWNLOAD_URL, PATH_TO_ZIP_FILE)
-        logger.info(f"{DOWNLOAD_URL} downloaded to {PATH_TO_ZIP_FILE}")
     else:
         logger.info(f"{PATH_TO_ZIP_FILE} already exists. Skipping download.")
 

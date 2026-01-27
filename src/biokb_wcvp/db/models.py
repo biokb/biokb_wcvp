@@ -269,6 +269,21 @@ class Plant(Base):
         return f"<Plant: id={self.plant_name_id}, name={self.taxon_name}>"
 
 
+class TempWcvpPlant(Base):
+    """This table is a temporary table for WCVP plants used during data processing."""
+
+    __tablename__ = table_prefix + "temp_plant"
+    __table_args__ = {"prefixes": ["TEMPORARY"]}
+
+    plant_name_id: Mapped[int] = mapped_column(
+        primary_key=True, comment="World Checklist of Vascular Plants (WCVP) identifier"
+    )
+    tax_id: Mapped[Optional[int]] = mapped_column(
+        index=True,
+        comment="NCBI Taxonomy identifier. Missing values indicate that the name has not been matched with a name in NCBI Taxonomy. If possible the tax_id is taken from the accepted name.",
+    )
+
+
 class Continent(Base):
     __tablename__ = table_prefix + "continent"
 

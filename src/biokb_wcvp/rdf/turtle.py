@@ -7,7 +7,7 @@ into RDF Turtle format, suitable for semantic web applications and knowledge gra
 import logging
 import os.path
 import shutil
-from typing import List, Type, TypeVar
+from typing import List, Optional, Type, TypeVar
 from urllib.parse import urlparse
 
 from rdflib import RDF, XSD, Graph, Literal, Namespace, URIRef
@@ -135,6 +135,13 @@ class TurtleCreator:
         )
         self.__engine = engine if engine else create_engine(str(connection_str))
         self.Session = sessionmaker(bind=self.__engine)
+
+    def _set_ttls_folder(self, export_to_folder: str) -> None:
+        """Sets the export folder path.
+
+        This is mainly for testing purposes.
+        """
+        self.__ttls_folder = export_to_folder
 
     def create_ttls(self) -> str:
         """Create all RDF turtle files and package them into a zip archive.
@@ -430,3 +437,27 @@ class TurtleCreator:
         shutil.rmtree(self.__ttls_folder)
 
         return path_to_zip_file
+
+
+def create_ttls(
+    engine: Optional[Engine] = None,
+    export_to_folder: Optional[str] = None,
+) -> str:
+    """Create all turtle files.
+
+    If engine=None tries to get the settings from config ini file
+
+    If export_to_folder=None takes the default path.
+
+    Args:
+        engine (Engine | None, optional): SQLAlchemy class. Defaults to None.
+        export_to_folder (str | None, optional): Folder to export ttl files.
+            Defaults to None.
+
+    Returns:
+        str: path zipped file with ttls.
+    """
+    ttl_creator = TurtleCreator(engine=engine)
+    if export_to_folder:
+        ttl_creator._set_ttls_folder(export_to_folder)
+    return ttl_creator.create_ttls()

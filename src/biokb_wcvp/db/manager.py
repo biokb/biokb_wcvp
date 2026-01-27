@@ -1,17 +1,17 @@
 import io
 import logging
 import os
-import re
 import shutil
+import sqlite3
 import zipfile
-from datetime import datetime
 from io import BytesIO
 from typing import Optional, Type, Union
 
 import pandas as pd
 import requests
-from sqlalchemy import Engine, create_engine, func, update
+from sqlalchemy import Engine, create_engine, event, insert, select, update
 from sqlalchemy.orm import aliased, sessionmaker
+from sqlalchemy.orm.session import Session
 
 # Import your models and Base from models.py
 from biokb_wcvp.constants import (
@@ -34,6 +34,17 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+@event.listens_for(Engine, "connect")
+def set_sqlite_pragma(
+    dbapi_connection: sqlite3.Connection, _connection_record: object
+) -> None:
+    """Enable foreign key constraint for SQLite."""
+    if isinstance(dbapi_connection, sqlite3.Connection):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+
+
 class DbManager:
     """
     Manages database operations, including creating, dropping, and importing data from TSV files.
@@ -42,42 +53,50 @@ class DbManager:
     def __init__(
         self,
         engine: Optional[Engine] = None,
-        force_download: bool = False,
     ):
         """
         Initialize the DbManager with a database engine and path to the data files.
 
         Args:
             engine: SQLAlchemy database engine instance.
-            path_to_file (str): Path to the directory containing TSV files.
         """
-        connection_str = os.getenv("CONNECTION_STR", DB_DEFAULT_CONNECTION_STR)
-        self.engine = engine if engine else create_engine(connection_str)
-        logger.info(f"Using database connection: {self.engine.url}")
-        self.Session = sessionmaker(bind=self.engine)
+        connection_str: str = os.getenv("CONNECTION_STR", DB_DEFAULT_CONNECTION_STR)
+
+        self.__engine = engine if engine else create_engine(connection_str)
+
+        self.Session = sessionmaker(bind=self.__engine)
         self.path_data_folder = DEFAULT_PATH_UNZIPPED_DATA_FOLDER
-        self.force_download = force_download
+        logger.info(f"Using database connection: {self.__engine.url}")
+
+    @property
+    def session(self) -> Session:
+        """Get a new SQLAlchemy session.
+
+        Returns:
+            Session: SQLAlchemy session
+        """
+        return self.Session()
 
     def set_import_path(self, path_to_file: Union[str, BytesIO]):
         self.path_to_file = path_to_file
 
     def recreate_db(self):
         """Drop all tables and recreate them."""
-        models.Base.metadata.drop_all(bind=self.engine)
-        models.Base.metadata.create_all(bind=self.engine)
+        models.Base.metadata.drop_all(bind=self.__engine)
+        models.Base.metadata.create_all(bind=self.__engine)
 
     def import_data(self, force_download: bool = False, keep_files: bool = False):
         self.recreate_db()
         download_and_unzip(force_download)
 
-        imported: dict[str, int | None] = {}
-        imported["plants"] = self.import_plants()
+        imported: dict[str, int] = {}
+        imported.update(self.import_plants())
         logger.info("Plants imported successfully.")
-        imported["locations"] = self.import_locations()
+        imported.update(self.import_locations())
         logger.info("Locations imported successfully.")
         self.update_plant_tax_ids()
         logger.info("Tax IDs updated successfully.")
-        self.import_wgsrpd()
+        imported.update(self.import_wgsrpd())
         logger.info("WGS-RPD data imported successfully.")
 
         if os.path.exists(DEFAULT_PATH_UNZIPPED_DATA_FOLDER):
@@ -85,6 +104,8 @@ class DbManager:
         if not keep_files:
             if os.path.exists(PATH_TO_ZIP_FILE):
                 os.remove(PATH_TO_ZIP_FILE)
+
+        return imported
 
     def extract_and_insert(
         self, df: pd.DataFrame, column_name: str, model: Type[models.Base]
@@ -111,10 +132,10 @@ class DbManager:
             how="left",
             on=column_name,
         ).drop(columns=[column_name])
-        df_unique.rename(columns={column_name: "name"}).to_sql(
-            model.__tablename__, con=self.engine, if_exists="append"
+        inserted_model = df_unique.rename(columns={column_name: "name"}).to_sql(
+            model.__tablename__, con=self.__engine, if_exists="append"
         )
-        return df
+        return df, inserted_model or 0
 
     def _get_df_names(self) -> pd.DataFrame:
         """Read the names TSV file into a DataFrame."""
@@ -125,45 +146,50 @@ class DbManager:
         df["homotypic_synonym"] = df["homotypic_synonym"].replace({"T": True})
         return df
 
-    def import_plants(self) -> int | None:
+    def import_plants(self) -> dict[str, int]:
         df = self._get_df_names()
-
+        logger.info("Importing plants")
         # Taxon Rank
         # ============================================================
-        df = self.extract_and_insert(df, "taxon_rank", models.TaxonRank)
-
+        df, inserted_taxon_rank = self.extract_and_insert(
+            df, "taxon_rank", models.TaxonRank
+        )
         # Taxon Status
         # ============================================================
-        df = self.extract_and_insert(df, "taxon_status", models.TaxonStatus)
+        df, inserted_taxon_status = self.extract_and_insert(
+            df, "taxon_status", models.TaxonStatus
+        )
         # Family
         # ============================================================
-        df = self.extract_and_insert(df, "family", models.Family)
+        df, inserted_family = self.extract_and_insert(df, "family", models.Family)
 
         # Genus
         # ============================================================
-        df = self.extract_and_insert(df, "genus", models.Genus)
+        df, inserted_genus = self.extract_and_insert(df, "genus", models.Genus)
         # Infraspecific Rank
         # ============================================================
-        df = self.extract_and_insert(df, "infraspecific_rank", models.InfraspecificRank)
+        df, inserted_infraspecific_rank = self.extract_and_insert(
+            df, "infraspecific_rank", models.InfraspecificRank
+        )
 
         # Lifeform Description
         # ============================================================
-        df = self.extract_and_insert(
+        df, inserted_lifeform_description = self.extract_and_insert(
             df, "lifeform_description", models.LifeformDescription
         )
 
         # Climate Description
         # ============================================================
-        df = self.extract_and_insert(
+        df, inserted_climate_description = self.extract_and_insert(
             df, "climate_description", models.ClimateDescription
         )
 
         # Insert Plants
         # ============================================================
         logger.info("Inserting plant names")
-        inserted = df.set_index("plant_name_id").to_sql(
+        inserted_plants = df.set_index("plant_name_id").to_sql(
             models.Plant.__tablename__,
-            con=self.engine,
+            con=self.__engine,
             if_exists="append",
             chunksize=10000,
         )
@@ -184,11 +210,24 @@ class DbManager:
                 session.add(root)
 
         df_tree = df_tree.where(pd.notnull(df_tree), None)  # type: ignore
-        df_tree.to_sql(models.Tree.__tablename__, con=self.engine, if_exists="append")
+        inserted_tree = df_tree.to_sql(
+            models.Tree.__tablename__, con=self.__engine, if_exists="append"
+        )
 
-        return inserted
+        return {
+            models.Plant.__tablename__: inserted_plants or 0,
+            models.Tree.__tablename__: inserted_tree or 0,
+            models.TaxonRank.__tablename__: inserted_taxon_rank or 0,
+            models.TaxonStatus.__tablename__: inserted_taxon_status or 0,
+            models.Family.__tablename__: inserted_family or 0,
+            models.Genus.__tablename__: inserted_genus or 0,
+            models.InfraspecificRank.__tablename__: inserted_infraspecific_rank or 0,
+            models.LifeformDescription.__tablename__: inserted_lifeform_description
+            or 0,
+            models.ClimateDescription.__tablename__: inserted_climate_description or 0,
+        }
 
-    def import_locations(self):
+    def import_locations(self) -> dict[str, int]:
         logger.info("Importing locations")
 
         filepath = os.path.join(
@@ -206,6 +245,9 @@ class DbManager:
             },
             inplace=True,
         )
+        # ----------------
+        # Continents
+        # ----------------
         logger.info("Inserting continents")
         df_continent = (
             df[["code_l1", "continent"]]
@@ -213,9 +255,12 @@ class DbManager:
             .rename(columns={"continent": "name"})
             .set_index("code_l1", drop=True)
         ).dropna()
-        df_continent.to_sql(
-            models.Continent.__tablename__, con=self.engine, if_exists="append"
+        inserted_continent = df_continent.to_sql(
+            models.Continent.__tablename__, con=self.__engine, if_exists="append"
         )
+        # ----------------
+        # Regions
+        # ----------------
         logger.info("Inserting regions")
         df_region = (
             df[["code_l2", "region"]]
@@ -223,9 +268,12 @@ class DbManager:
             .rename(columns={"region": "name"})
             .set_index("code_l2", drop=True)
         ).dropna()
+        # ----------------
+        # Areas
+        # ----------------
         logger.info("Inserting areas")
-        df_region.to_sql(
-            models.Region.__tablename__, con=self.engine, if_exists="append"
+        inserted_region = df_region.to_sql(
+            models.Region.__tablename__, con=self.__engine, if_exists="append"
         )
         df_area = (
             df[["code_l3", "area"]]
@@ -233,20 +281,36 @@ class DbManager:
             .rename(columns={"area": "name"})
             .set_index("code_l3", drop=True)
         ).dropna()
-        df_area.to_sql(models.Area.__tablename__, con=self.engine, if_exists="append")
-        return df.drop(
+        inserted_area = df_area.to_sql(
+            models.Area.__tablename__, con=self.__engine, if_exists="append"
+        )
+        # ----------------
+        # Locations
+        # ----------------
+        logger.info("Inserting locations")
+        df.drop(
             columns=[
                 "continent",
                 "region",
                 "area",
-            ]
-        ).to_sql(
+            ],
+            inplace=True,
+        )
+        df.code_l3 = df.code_l3.str.upper()
+
+        inserted_location = df.to_sql(
             models.Location.__tablename__,
-            con=self.engine,
+            con=self.__engine,
             if_exists="append",
             index=False,
-            chunksize=10000,
+            chunksize=100_000,
         )
+        return {
+            models.Area.__tablename__: inserted_area or 0,
+            models.Location.__tablename__: inserted_location or 0,
+            models.Continent.__tablename__: inserted_continent or 0,
+            models.Region.__tablename__: inserted_region or 0,
+        }
 
     def __download_taxdmp(self, path_to_file: str):
         """Download the NCBI taxdump file."""
@@ -265,8 +329,8 @@ class DbManager:
             Dict[str, int]: table name, number of entries
         """
         logger.info("import taxonomy names (up to 5min)")
-        models.TaxonomyName.__table__.drop(self.engine, checkfirst=True)  # type: ignore
-        models.TaxonomyName.__table__.create(self.engine, checkfirst=True)  # type: ignore
+        models.TaxonomyName.__table__.drop(self.__engine, checkfirst=True)  # type: ignore
+        models.TaxonomyName.__table__.create(self.__engine, checkfirst=True)  # type: ignore
         os.makedirs(TAXONOMY_DATA_FOLDER, exist_ok=True)
         taxtree_path_to_file = os.path.join(TAXONOMY_DATA_FOLDER, "taxdmp.zip")
         self.__download_taxdmp(taxtree_path_to_file)
@@ -284,7 +348,7 @@ class DbManager:
         df.index.rename("id", inplace=True)
         df.to_sql(
             models.TaxonomyName.__tablename__,
-            self.engine,
+            self.__engine,
             if_exists="append",
             chunksize=10000,
         )
@@ -328,34 +392,48 @@ class DbManager:
             session.commit()
 
             # Inherit tax_id from accepted name
-            logger.info("Inherit tax_ids from accepted names")
-            p1 = aliased(models.Plant, name="p1")
-            p2 = aliased(models.Plant, name="p2")
+            # Table have to be created fresh each time
+            logger.info("Creating temporary table for tax_id inheritance")
+            models.TempWcvpPlant.__table__.drop(self.__engine, checkfirst=True)  # type: ignore
+            models.TempWcvpPlant.__table__.create(self.__engine, checkfirst=True)  # type: ignore
+            stmt = insert(models.TempWcvpPlant).from_select(
+                ["plant_name_id", "tax_id"],
+                select(models.Plant.plant_name_id, models.Plant.tax_id),
+            )
+            session.execute(stmt)
+            session.commit()
 
+            logger.info("Inherit tax_ids from accepted names")
+
+            p = models.Plant
+            tp = models.TempWcvpPlant
+
+            # This version is optimized for MySQL and avoids the "Can't reopen table" error
             stmt = (
-                update(p1)
-                .values(tax_id=p2.tax_id)
+                update(p)
+                # Referencing tp here tells SQLAlchemy to render a JOIN in MySQL
+                .where(p.accepted_plant_name_id == tp.plant_name_id)
                 .where(
-                    p1.accepted_plant_name_id == p2.plant_name_id,
-                    p1.plant_name_id != p1.accepted_plant_name_id,
-                    p1.tax_id.is_(None),
-                    p2.tax_id.is_not(None),
+                    p.plant_name_id != p.accepted_plant_name_id,
+                    p.tax_id.is_(None),
+                    tp.tax_id.is_not(None),
                 )
+                .values(tax_id=tp.tax_id)
             )
 
             session.execute(stmt)
             session.commit()
 
-    def import_wgsrpd(self):
+    def import_wgsrpd(self) -> dict[str, int]:
         """Import World Geographical Scheme for Recording Plant Distributions
         https://www.tdwg.org/standards/wgsrpd/."""
         logger.info("Importing TDWG geoschemes")
-        models.GeoLocationLevel3.__table__.drop(self.engine, checkfirst=True)  # type: ignore
-        models.GeoLocationLevel2.__table__.drop(self.engine, checkfirst=True)  # type: ignore
-        models.GeoLocationLevel1.__table__.drop(self.engine, checkfirst=True)  # type: ignore
-        models.GeoLocationLevel1.__table__.create(self.engine, checkfirst=True)  # type: ignore
-        models.GeoLocationLevel2.__table__.create(self.engine, checkfirst=True)  # type: ignore
-        models.GeoLocationLevel3.__table__.create(self.engine, checkfirst=True)  # type: ignore
+        models.GeoLocationLevel3.__table__.drop(self.__engine, checkfirst=True)  # type: ignore
+        models.GeoLocationLevel2.__table__.drop(self.__engine, checkfirst=True)  # type: ignore
+        models.GeoLocationLevel1.__table__.drop(self.__engine, checkfirst=True)  # type: ignore
+        models.GeoLocationLevel1.__table__.create(self.__engine, checkfirst=True)  # type: ignore
+        models.GeoLocationLevel2.__table__.create(self.__engine, checkfirst=True)  # type: ignore
+        models.GeoLocationLevel3.__table__.create(self.__engine, checkfirst=True)  # type: ignore
 
         # Implementation goes here
         df_l1 = pd.read_excel(
@@ -369,7 +447,7 @@ class DbManager:
             },
         ).to_sql(
             models.GeoLocationLevel1.__tablename__,
-            con=self.engine,
+            con=self.__engine,
             if_exists="append",
             index=False,
         )
@@ -385,7 +463,7 @@ class DbManager:
             },
         ).to_sql(
             models.GeoLocationLevel2.__tablename__,
-            con=self.engine,
+            con=self.__engine,
             if_exists="append",
             index=False,
         )
@@ -393,7 +471,7 @@ class DbManager:
             "https://github.com/tdwg/geoschemes/raw/refs/heads/main/terrestrial/Level3_27-Jun-25.xlsx",
             usecols=["L3 code", "L3 area", "L2 code"],
         )
-        df_l3.rename(
+        inserted = df_l3.rename(
             columns={
                 "L3 code": "code",
                 "L3 area": "name",
@@ -401,7 +479,40 @@ class DbManager:
             },
         ).to_sql(
             models.GeoLocationLevel3.__tablename__,
-            con=self.engine,
+            con=self.__engine,
             if_exists="append",
             index=False,
         )
+        return {models.GeoLocationLevel3.__tablename__: inserted or 0}
+
+
+def import_data(
+    engine: Optional[Engine] = None,
+    force_download: bool = False,
+    keep_files: bool = False,
+) -> dict[str, int]:
+    """Import all data in database.
+
+    Args:
+        engine (Optional[Engine]): SQLAlchemy engine. Defaults to None.
+        force_download (bool, optional): If True, will force download the data, even if
+            files already exist. If False, it will skip the downloading part if files
+            already exist locally. Defaults to False.
+        keep_files (bool, optional): If True, downloaded files are kept after import.
+            Defaults to False.
+
+    Returns:
+        dict[str, int]: table=key and number of inserted=value
+    """
+    db_manager = DbManager(engine)
+    return db_manager.import_data(force_download=force_download, keep_files=keep_files)
+
+
+def get_session(engine: Optional[Engine] = None) -> Session:
+    """Get a new SQLAlchemy session.
+
+    Returns:
+        Session: SQLAlchemy session
+    """
+    db_manager = DbManager(engine)
+    return db_manager.session

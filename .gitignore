@@ -179,3 +179,5 @@ tests/dbs/fastapi.db
 tests/dbs/test.db
 .vscode
 notebooks/test.ipynb
+.env_local
+.env_ethcstwin

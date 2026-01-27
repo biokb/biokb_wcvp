@@ -22,7 +22,7 @@ def dbm() -> DbManager:
 
 def test_df_manager(dbm: DbManager):
     """Test if DBManager takes the parameter and return the correct values."""
-    assert isinstance(dbm.engine, Engine)
+    assert isinstance(dbm.__engine, Engine)
     assert dbm.path_to_file == path_to_data
 
 

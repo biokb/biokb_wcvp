@@ -4,6 +4,7 @@ import secrets
 from contextlib import asynccontextmanager
 from typing import Annotated, Dict, Optional
 
+import uvicorn
 from fastapi import Depends, FastAPI, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
@@ -48,7 +49,7 @@ description = """A RESTful API for WCVP."""
 app = FastAPI(
     title="RESTful API for WCVP",
     description=description,
-    version="0.0.1",
+    version="0.1.0",
     lifespan=lifespan,
 )
 
@@ -59,6 +60,15 @@ app.add_middleware(
     allow_methods=["*"],  # Allows all methods
     allow_headers=["*"],  # Allows all headers
 )
+
+
+def run_api(host: str = "0.0.0.0", port: int = 8000):
+    uvicorn.run(
+        app="biokb_wcvp.api.main:app",
+        host=host,
+        port=port,
+        log_level="warning",
+    )
 
 
 def verify_credentials(credentials: HTTPBasicCredentials = Depends(HTTPBasic())):
@@ -79,7 +89,7 @@ def verify_credentials(credentials: HTTPBasicCredentials = Depends(HTTPBasic()))
 @app.post(path="/import_data/", response_model=dict[str, int], tags=[Tag.DBMANAGE])
 def import_data(
     credentials: HTTPBasicCredentials = Depends(verify_credentials),
-) -> Dict[str, int | None]:
+) -> Dict[str, int]:
     """Download data and import it into the database."""
     dbm = manager.DbManager()
     return dbm.import_data()
@@ -92,7 +102,7 @@ async def export_ttls(
     """Create zipped RDF turtle files (if not exists) for WCVP data export."""
     dbm = manager.DbManager()
     if not os.path.exists(ZIPPED_TTLS_PATH):
-        tc = TurtleCreator(dbm.engine)
+        tc = TurtleCreator(dbm.__engine)
         tc.create_ttls()
 
     return FileResponse(
@@ -107,8 +117,8 @@ async def import_into_neo4j(
     """Create zipped RDF turtle files (if not exists) for WCVP data export."""
     dbm = manager.DbManager()
     # check if database exists and has data
-    plant_table_exists = dbm.engine.dialect.has_table(
-        dbm.engine.connect(), models.Plant.__tablename__
+    plant_table_exists = dbm.__engine.dialect.has_table(
+        dbm.__engine.connect(), models.Plant.__tablename__
     )
     if not plant_table_exists:
         dbm.import_data()
@@ -119,7 +129,7 @@ async def import_into_neo4j(
                 dbm.import_data()
 
     if not os.path.exists(ZIPPED_TTLS_PATH):
-        tc = TurtleCreator(dbm.engine)
+        tc = TurtleCreator(dbm.__engine)
         tc.create_ttls()
 
     ni = Neo4jImporter()

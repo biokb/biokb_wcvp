@@ -2,13 +2,29 @@ import os
 
 import click
 from sqlalchemy import create_engine
-
+from typing import Optional
 from biokb_wcvp import __version__
 from biokb_wcvp.api.main import run_api
-from biokb_wcvp.constants import NEO4J_USER, PROJECT_NAME
+from biokb_wcvp.constants import NEO4J_URI, NEO4J_USER, PROJECT_NAME
 from biokb_wcvp.db.manager import DbManager
 from biokb_wcvp.rdf.neo4j_importer import Neo4jImporter
 from biokb_wcvp.rdf.turtle import TurtleCreator
+import logging
+
+
+def setup_logging(ctx, param, value):
+    # Only set up logging if the user actually asks for it
+    if value == 1:
+        logging.getLogger("biokb_ipni").setLevel(logging.INFO)
+    elif value >= 2:
+        logging.getLogger("biokb_ipni").setLevel(logging.DEBUG)
+
+    # We must add a handler so the logs actually print to the screen
+    if value > 0:
+        ch = logging.StreamHandler()
+        formatter = logging.Formatter("%(name)s - %(levelname)s - %(message)s")
+        ch.setFormatter(formatter)
+        logging.getLogger("fetcher").addHandler(ch)
 
 
 @click.group()
@@ -35,7 +51,7 @@ def main():
 )
 @click.option(
     "-k",
-    "--keep-files",
+    "--delete-files",
     is_flag=True,
     type=bool,
     default=False,
@@ -71,12 +87,31 @@ def create_ttls(connection_string: str):
     )
 
 
+neo4j_uri = os.getenv("NEO4J_URI", NEO4J_URI)
+neo4j_user = os.getenv("NEO4J_USER", NEO4J_USER)
+
+
 @main.command("import-neo4j")
-@click.option("--uri", "-i", default="bolt://localhost:7687", help="Neo4j database URI")
-@click.option("--user", "-u", default=NEO4J_USER, help="Neo4j username")
-@click.option("--password", "-p", required=True, help="Neo4j password")
-def import_neo4j(uri: str, user: str, password: str):
+@click.option(
+    "--uri",
+    "-i",
+    default=neo4j_uri,
+    help=f'Neo4j database URI [default:"{neo4j_uri}"]',
+)
+@click.option(
+    "--user", "-u", default=neo4j_user, help=f'Neo4j username [default="{neo4j_user}"]'
+)
+@click.option("--password", "-p", default=None, help="Neo4j password")
+def import_neo4j(uri: str, user: str, password: Optional[str]) -> None:
     """Import TTL files into Neo4j database."""
+    if password is None:
+        password = click.prompt(
+            "Please enter the Neo4j password (input will be hidden)", hide_input=True
+        )
+    else:
+        click.echo(
+            "It is not recommended to provide the Neo4j password via command line."
+        )
     Neo4jImporter(neo4j_uri=uri, neo4j_user=user, neo4j_pwd=password).import_ttls()
 
 

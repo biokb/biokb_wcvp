@@ -7,9 +7,10 @@ import zipfile
 from io import BytesIO
 from typing import Optional, Type, Union
 
+from httpx import delete
 import pandas as pd
 import requests
-from sqlalchemy import Engine, create_engine, event, insert, select, update
+from sqlalchemy import Engine, create_engine, event, insert, select, update, text
 from sqlalchemy.orm import aliased, sessionmaker
 from sqlalchemy.orm.session import Session
 
@@ -63,10 +64,13 @@ class DbManager:
         connection_str: str = os.getenv("CONNECTION_STR", DB_DEFAULT_CONNECTION_STR)
 
         self.__engine = engine if engine else create_engine(connection_str)
+        if self.__engine.dialect.name == "sqlite":
+            with self.__engine.connect() as connection:
+                connection.execute(text("pragma foreign_keys=ON"))
 
         self.Session = sessionmaker(bind=self.__engine)
         self.path_data_folder = DEFAULT_PATH_UNZIPPED_DATA_FOLDER
-        logger.info(f"Using database connection: {self.__engine.url}")
+        logger.info("Engine: %s", self.__engine)
 
     @property
     def session(self) -> Session:
@@ -85,7 +89,7 @@ class DbManager:
         models.Base.metadata.drop_all(bind=self.__engine)
         models.Base.metadata.create_all(bind=self.__engine)
 
-    def import_data(self, force_download: bool = False, keep_files: bool = False):
+    def import_data(self, force_download: bool = False, delete_files: bool = False):
         self.recreate_db()
         download_and_unzip(force_download)
 
@@ -101,9 +105,8 @@ class DbManager:
 
         if os.path.exists(DEFAULT_PATH_UNZIPPED_DATA_FOLDER):
             shutil.rmtree(DEFAULT_PATH_UNZIPPED_DATA_FOLDER)
-        if not keep_files:
-            if os.path.exists(PATH_TO_ZIP_FILE):
-                os.remove(PATH_TO_ZIP_FILE)
+        if delete_files and os.path.exists(PATH_TO_ZIP_FILE):
+            os.remove(PATH_TO_ZIP_FILE)
 
         return imported
 
@@ -489,7 +492,7 @@ class DbManager:
 def import_data(
     engine: Optional[Engine] = None,
     force_download: bool = False,
-    keep_files: bool = False,
+    delete_files: bool = True,
 ) -> dict[str, int]:
     """Import all data in database.
 
@@ -498,14 +501,16 @@ def import_data(
         force_download (bool, optional): If True, will force download the data, even if
             files already exist. If False, it will skip the downloading part if files
             already exist locally. Defaults to False.
-        keep_files (bool, optional): If True, downloaded files are kept after import.
+        delete_files (bool, optional): If True, downloaded files are deleted after import.
             Defaults to False.
 
     Returns:
         dict[str, int]: table=key and number of inserted=value
     """
     db_manager = DbManager(engine)
-    return db_manager.import_data(force_download=force_download, keep_files=keep_files)
+    return db_manager.import_data(
+        force_download=force_download, delete_files=delete_files
+    )
 
 
 def get_session(engine: Optional[Engine] = None) -> Session:

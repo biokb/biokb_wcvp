@@ -4,6 +4,9 @@ from biokb_wcvp.db import models
 from biokb_wcvp.db.manager import DbManager, get_session, import_data
 from biokb_wcvp.rdf.neo4j_importer import Neo4jImporter, import_ttls
 from biokb_wcvp.rdf.turtle import TurtleCreator, create_ttls
+import logging
+logger = logging.getLogger(__name__)
+logger.addHandler(logging.NullHandler())
 
 try:
     __version__ = version("biokb_wcvp")

@@ -1,15 +1,16 @@
+import logging
 import os
+from typing import Optional
 
 import click
 from sqlalchemy import create_engine
-from typing import Optional
+
 from biokb_wcvp import __version__
 from biokb_wcvp.api.main import run_api
 from biokb_wcvp.constants import NEO4J_URI, NEO4J_USER, PROJECT_NAME
 from biokb_wcvp.db.manager import DbManager
 from biokb_wcvp.rdf.neo4j_importer import Neo4jImporter
 from biokb_wcvp.rdf.turtle import TurtleCreator
-import logging
 
 
 def setup_logging(ctx, param, value):
@@ -50,7 +51,7 @@ def main():
     help="Force re-download of the source file [default: False]",
 )
 @click.option(
-    "-k",
+    "-d",
     "--delete-files",
     is_flag=True,
     type=bool,

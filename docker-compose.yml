@@ -54,6 +54,7 @@ services:
   wcvp:
     build: .
     image: biokb_wcvp_api:latest
+    container_name: biokb_wcvp
     ports:
       - "${WCVP_API_PORT}:8000"
     environment:
@@ -61,6 +62,8 @@ services:
       NEO4J_URI: ${NEO4J_URI}
       NEO4J_USER: ${NEO4J_USER}
       NEO4J_PASSWORD: ${NEO4J_PASSWORD}
+      WCVP_API_USERNAME: ${WCVP_API_USERNAME}
+      WCVP_API_PASSWORD: ${WCVP_API_PASSWORD}
     volumes:
       - ${BIOKB_FOLDER}:/root/.biokb
     networks:

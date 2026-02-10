@@ -26,8 +26,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-USERNAME = os.environ.get("API_USERNAME", "admin")
-PASSWORD = os.environ.get("API_PASSWORD", "admin")
+USERNAME = os.environ.get("WCVP_API_USERNAME", "admin")
+PASSWORD = os.environ.get("WCVP_API_PASSWORD", "admin")
 
 
 def get_session():

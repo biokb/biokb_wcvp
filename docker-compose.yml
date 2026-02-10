@@ -53,14 +53,18 @@ services:
       
   wcvp:
     build: .
-    container_name: biokb_wcvp
-    environment:
-      CONNECTION_STR: "mysql+pymysql://${MYSQL_USER}:${MYSQL_PASSWORD}@${MYSQL_HOST}:${MYSQL_PORT}/${MYSQL_DATABASE}"
-      NEO4J_URI: "bolt://${NEO4J_HOST}:${NEO4J_PORT_BOLT}"
+    image: biokb_wcvp_api:latest
     ports:
-      - ${API_PORT}:8000
+      - "${WCVP_API_PORT}:8000"
+    environment:
+      CONNECTION_STR: ${CONNECTION_STR}
+      NEO4J_URI: ${NEO4J_URI}
+      NEO4J_USER: ${NEO4J_USER}
+      NEO4J_PASSWORD: ${NEO4J_PASSWORD}
     volumes:
-      - ~/.biokb/wcvp:/root/.biokb/wcvp
+      - ${BIOKB_FOLDER}:/root/.biokb
+    networks:
+      - biokb_network
 
 volumes:
   mysql_data:

@@ -7,10 +7,9 @@ import zipfile
 from io import BytesIO
 from typing import Optional, Type, Union
 
-from httpx import delete
 import pandas as pd
 import requests
-from sqlalchemy import Engine, create_engine, event, insert, select, update, text
+from sqlalchemy import Engine, create_engine, event, insert, select, text, update
 from sqlalchemy.orm import aliased, sessionmaker
 from sqlalchemy.orm.session import Session
 
@@ -103,10 +102,11 @@ class DbManager:
         imported.update(self.import_wgsrpd())
         logger.info("WGS-RPD data imported successfully.")
 
-        if os.path.exists(DEFAULT_PATH_UNZIPPED_DATA_FOLDER):
-            shutil.rmtree(DEFAULT_PATH_UNZIPPED_DATA_FOLDER)
-        if delete_files and os.path.exists(PATH_TO_ZIP_FILE):
-            os.remove(PATH_TO_ZIP_FILE)
+        if delete_files:
+            if os.path.exists(DEFAULT_PATH_UNZIPPED_DATA_FOLDER):
+                shutil.rmtree(DEFAULT_PATH_UNZIPPED_DATA_FOLDER)
+            if delete_files and os.path.exists(PATH_TO_ZIP_FILE):
+                os.remove(PATH_TO_ZIP_FILE)
 
         return imported
 

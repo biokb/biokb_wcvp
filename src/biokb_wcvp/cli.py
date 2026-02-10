@@ -65,10 +65,12 @@ def main():
     default=f"sqlite:///{PROJECT_NAME}.db",
     help=f"SQLAlchemy engine URL [default: sqlite:///{PROJECT_NAME}.db]",
 )
-def import_data(force_download: bool, connection_string: str):
+def import_data(force_download: bool, connection_string: str, delete_files: bool):
     """Import data."""
     engine = create_engine(connection_string)
-    DbManager(engine=engine).import_data(force_download=force_download)
+    DbManager(engine=engine).import_data(
+        force_download=force_download, delete_files=delete_files
+    )
     click.echo(f"Data imported successfully to {connection_string}")
 
 

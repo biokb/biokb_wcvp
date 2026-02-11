@@ -66,8 +66,6 @@ services:
       WCVP_API_PASSWORD: ${WCVP_API_PASSWORD}
     volumes:
       - ${BIOKB_FOLDER}:/root/.biokb
-    networks:
-      - biokb_network
 
 volumes:
   mysql_data:

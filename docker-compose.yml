@@ -70,6 +70,7 @@ services:
 volumes:
   mysql_data:
   neo4j_data:
+  biokb_data:
 
 networks:
   default:

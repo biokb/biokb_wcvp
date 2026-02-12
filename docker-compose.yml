@@ -1,6 +1,6 @@
 version: "3.9"
 name: biokb_db
-# for dev: podman-compose --env-file .env_template -f docker-compose.mysql_neo4j_pma.yml up -d
+# for dev: podman-compose --env-file .env_template -f docker-compose.yml up -d
 
 services:
   mysql:

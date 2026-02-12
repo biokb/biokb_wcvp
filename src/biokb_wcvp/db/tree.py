@@ -28,7 +28,7 @@ import pandas as pd
 logger = logging.getLogger(__name__)
 
 
-@dataclass
+@dataclass(slots=True)
 class TreeEntry:
     tree_id: int
     tree_parent_id: Optional[int]

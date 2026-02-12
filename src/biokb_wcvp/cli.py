@@ -7,18 +7,23 @@ from sqlalchemy import create_engine
 
 from biokb_wcvp import __version__
 from biokb_wcvp.api.main import run_api
-from biokb_wcvp.constants import NEO4J_URI, NEO4J_USER, PROJECT_NAME
+from biokb_wcvp.constants import (
+    DB_DEFAULT_CONNECTION_STR,
+    NEO4J_URI,
+    NEO4J_USER,
+    PROJECT_NAME,
+)
 from biokb_wcvp.db.manager import DbManager
 from biokb_wcvp.rdf.neo4j_importer import Neo4jImporter
 from biokb_wcvp.rdf.turtle import TurtleCreator
 
 
-def setup_logging(ctx, param, value):
+def setup_logging(ctx: click.Context, param: click.Parameter, value: int) -> int:
     # Only set up logging if the user actually asks for it
     if value == 1:
-        logging.getLogger("biokb_ipni").setLevel(logging.INFO)
+        logging.getLogger("biokb_wcvp").setLevel(logging.INFO)
     elif value >= 2:
-        logging.getLogger("biokb_ipni").setLevel(logging.DEBUG)
+        logging.getLogger("biokb_wcvp").setLevel(logging.DEBUG)
 
     # We must add a handler so the logs actually print to the screen
     if value > 0:
@@ -27,9 +32,25 @@ def setup_logging(ctx, param, value):
         ch.setFormatter(formatter)
         logging.getLogger("fetcher").addHandler(ch)
 
+    return value
+
 
 @click.group()
 @click.version_option(__version__)
+@click.option(
+    "-v",
+    count=True,
+    callback=setup_logging,
+    expose_value=False,
+    help="Increase verbosity (use -vv for debug level)",
+)
+@click.option(
+    "-vv",
+    count=True,
+    callback=setup_logging,
+    expose_value=False,
+    help="Increase verbosity to debug level",
+)
 def main():
     """Import in RDBMS, create turtle files and import into Neo4J.
 
@@ -62,8 +83,8 @@ def main():
     "-c",
     "--connection-string",
     type=str,
-    default=f"sqlite:///{PROJECT_NAME}.db",
-    help=f"SQLAlchemy engine URL [default: sqlite:///{PROJECT_NAME}.db]",
+    default=DB_DEFAULT_CONNECTION_STR,
+    help=f"SQLAlchemy engine URL [default: [default: {DB_DEFAULT_CONNECTION_STR}]",
 )
 def import_data(force_download: bool, connection_string: str, delete_files: bool):
     """Import data."""
@@ -79,8 +100,8 @@ def import_data(force_download: bool, connection_string: str, delete_files: bool
     "-c",
     "--connection-string",
     type=str,
-    default=f"sqlite:///{PROJECT_NAME}.db",
-    help=f"SQLAlchemy engine URL [default: sqlite:///{PROJECT_NAME}.db]",
+    default=DB_DEFAULT_CONNECTION_STR,
+    help=f"SQLAlchemy engine URL [default: {DB_DEFAULT_CONNECTION_STR}]",
 )
 def create_ttls(connection_string: str):
     """Create TTL files from local database."""

@@ -73,8 +73,10 @@ class Tree:
         """Builds the tree structure and returns it as a DataFrame."""
         logger.info("Building tree structure")
         pc_dict = self.__get_parent_childs_dict()
-        all_children = set([x for y in pc_dict.values() for x in y])
-        roots = [k for k in pc_dict.keys() if k not in all_children]
+        all_children: set[int] = set()
+        for children in pc_dict.values():
+            all_children.update(children)
+        roots = [k for k in pc_dict if k not in all_children]
         if len(roots) == 0:
             raise ValueError("No root nodes found in the tree.")
         elif len(roots) == 1:
@@ -106,7 +108,7 @@ class Tree:
         pc_dict: dict[int, list[int]],
         level=0,
         tree_id=1,
-        tree: dict[int, TreeEntry] = {},
+        tree: Optional[dict[int, TreeEntry]] = None,
     ):
         """
         Recursively builds a tree structure from parent-child relationships.
@@ -119,6 +121,8 @@ class Tree:
             tree_id (int): The current tree ID.
             tree (dict[int, TreeEntry]): The tree structure being built.
         """
+        if tree is None:
+            tree = {}
         db_id = tree_entry.db_id
         tree[tree_entry.tree_id] = tree_entry
         children = pc_dict.get(db_id, [])

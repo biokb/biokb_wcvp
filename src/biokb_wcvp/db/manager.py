@@ -197,25 +197,27 @@ class DbManager:
             chunksize=10000,
         )
 
-        df_tree, root_id = Tree(
-            df=df[["plant_name_id", "parent_plant_name_id"]],
-            id_name="plant_name_id",
-            parent_id_name="parent_plant_name_id",
-        ).get_tree()
-        with self.Session.begin() as session:
-            root_exists = (
-                session.query(models.Plant)
-                .filter(models.Plant.plant_name_id == root_id)
-                .first()
-            )
-            if not root_exists:
-                root = models.Plant(plant_name_id=root_id, taxon_name="Root")
-                session.add(root)
+        # df_tree, root_id = Tree(
+        #     df=df[["plant_name_id", "parent_plant_name_id"]],
+        #     id_name="plant_name_id",
+        #     parent_id_name="parent_plant_name_id",
+        # ).get_tree()
 
-        df_tree = df_tree.where(pd.notnull(df_tree), None)  # type: ignore
-        inserted_tree = df_tree.to_sql(
-            models.Tree.__tablename__, con=self.__engine, if_exists="append"
-        )
+        # with self.Session.begin() as session:
+        #     root_exists = (
+        #         session.query(models.Plant)
+        #         .filter(models.Plant.plant_name_id == root_id)
+        #         .first()
+        #     )
+        #     if not root_exists:
+        #         root = models.Plant(plant_name_id=root_id, taxon_name="Root")
+        #         session.add(root)
+
+        # df_tree = df_tree.where(pd.notnull(df_tree), None)  # type: ignore
+        # inserted_tree = df_tree.to_sql(
+        #     models.Tree.__tablename__, con=self.__engine, if_exists="append"
+        # )
+        inserted_tree = 0  # only code above not fixed yet, and it is not critical for the import, so setting it to 0 for now
 
         return {
             models.Plant.__tablename__: inserted_plants or 0,

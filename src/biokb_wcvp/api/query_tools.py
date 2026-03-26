@@ -54,7 +54,7 @@ def _build_dynamic_query(
     joins = []  # Track which tables we need to join
 
     # Only the attributes the client actually supplied (`exclude_none`)
-    payload = search_obj.model_dump(exclude_none=True)
+    payload = search_obj.model_dump(exclude_none=True, mode="json")
 
     # Map search field names to (relationship_model, relationship_attr, target_column)
     # For fields that are in related tables
@@ -150,6 +150,9 @@ def _build_dynamic_query(
                 filters.append(column.between(value[0], value[1]))
             else:
                 filters.append(column == value)
+
+        elif isinstance(origin, type) and issubclass(origin, Enum):
+            filters.append(column == value)
 
         # FALLBACK .....................................................................
         else:

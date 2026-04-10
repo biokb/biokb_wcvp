@@ -5,6 +5,7 @@ from typing import Optional
 import click
 from dotenv import load_dotenv
 from sqlalchemy import create_engine
+from sqlalchemy.engine import Engine
 
 from biokb_wcvp import __version__
 from biokb_wcvp.api.main import run_api
@@ -12,6 +13,8 @@ from biokb_wcvp.constants import DB_DEFAULT_CONNECTION_STR, NEO4J_URI, NEO4J_USE
 from biokb_wcvp.db.manager import DbManager
 from biokb_wcvp.rdf.neo4j_importer import Neo4jImporter
 from biokb_wcvp.rdf.turtle import TurtleCreator
+
+logger = logging.getLogger("biokb_wcvp")
 
 
 def setup_logging(ctx: click.Context, param: click.Parameter, value: int) -> int:
@@ -85,30 +88,38 @@ def main():
 @click.option(
     "-e",
     "--env",
-    is_flag=True,
-    type=bool,
-    default=False,
-    help="Use environment variables for configuration file .env if exists [default: False]",
+    type=str,
+    default=None,
+    help="Environment file to load for configuration (default: None)",
 )
 def import_data(
-    force_download: bool, connection_string: str | None, delete_files: bool, env: bool
+    force_download: bool,
+    connection_string: str | None,
+    delete_files: bool,
+    env: Optional[str] = None,
 ):
     """Import data."""
-    # load .env file if it exists
-
     if env:
-        load_dotenv(
-            environment_file=".env", override=True
-        )  # Load environment variables from .env file, override existing env variables if any
-        connection_string = os.getenv("DB_CONNECTION_STRING", DB_DEFAULT_CONNECTION_STR)
-    if connection_string is None:
-        connection_string = DB_DEFAULT_CONNECTION_STR
+        if connection_string:
+            logger.warning(
+                "Both environment file and connection string provided. Environment have priority."
+            )
+        if not os.path.exists(env):
+            logger.error("Environment file %s not found.", env)
+            return
+        load_dotenv(env, override=True)
+        connection_string = os.getenv("CONNECTION_STR")
+        if connection_string is None:
+            logger.warning(
+                "CONNECTION_STR environment variable not found. Using default connection string."
+            )
 
-    engine = create_engine(connection_string)
+    engine: Engine | None = (
+        create_engine(connection_string) if connection_string else None
+    )
     DbManager(engine=engine).import_data(
         force_download=force_download, delete_files=delete_files
     )
-    click.echo(f"Data imported successfully to {connection_string}")
 
 
 @main.command("create-ttls")
@@ -122,16 +133,15 @@ def import_data(
 @click.option(
     "-e",
     "--env",
-    is_flag=True,
-    type=bool,
-    default=False,
-    help="Use environment variables for configuration file .env if exists [default: False]",
+    type=str,
+    default=None,
+    help="Environment file to load for configuration (default: None)",
 )
-def create_ttls(connection_string: str | None, env: bool) -> None:
+def create_ttls(connection_string: str | None, env: Optional[str] = None) -> None:
     """Create TTL files from local database."""
     if env:
         load_dotenv(
-            environment_file=".env", override=True
+            env, override=True
         )  # Load environment variables from .env file, override existing env variables if any
         connection_string = os.getenv("DB_CONNECTION_STRING", DB_DEFAULT_CONNECTION_STR)
     if connection_string is None:

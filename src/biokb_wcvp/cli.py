@@ -97,7 +97,9 @@ def import_data(
     # load .env file if it exists
 
     if env:
-        load_dotenv()
+        load_dotenv(
+            environment_file=".env", override=True
+        )  # Load environment variables from .env file, override existing env variables if any
         connection_string = os.getenv("DB_CONNECTION_STRING", DB_DEFAULT_CONNECTION_STR)
     if connection_string is None:
         connection_string = DB_DEFAULT_CONNECTION_STR
@@ -128,7 +130,9 @@ def import_data(
 def create_ttls(connection_string: str | None, env: bool) -> None:
     """Create TTL files from local database."""
     if env:
-        load_dotenv()
+        load_dotenv(
+            environment_file=".env", override=True
+        )  # Load environment variables from .env file, override existing env variables if any
         connection_string = os.getenv("DB_CONNECTION_STRING", DB_DEFAULT_CONNECTION_STR)
     if connection_string is None:
         connection_string = DB_DEFAULT_CONNECTION_STR

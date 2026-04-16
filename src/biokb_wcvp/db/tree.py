@@ -1,4 +1,9 @@
 import logging
+from collections import defaultdict
+from dataclasses import dataclass
+from typing import Optional
+
+import pandas as pd
 
 """Tree structure builder for hierarchical data.
 
@@ -19,11 +24,7 @@ Example:
     ... })
     >>> tree = Tree(df, id_name='id', parent_id_name='parent_id')
     >>> tree_df, root_id = tree.get_tree()"""
-from collections import defaultdict
-from dataclasses import dataclass
-from typing import Optional
 
-import pandas as pd
 
 logger = logging.getLogger(__name__)
 

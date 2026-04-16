@@ -65,6 +65,13 @@ class PlantBase(BaseModel):
 
 
 class Plant(PlantBase):
+    model_config = ConfigDict(from_attributes=True)
+    locations: list["LocationBase"]
+
+
+class TaxIdLocations(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    tax_id: int
     locations: list["LocationBase"]
 
 

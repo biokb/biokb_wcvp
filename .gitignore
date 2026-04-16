@@ -181,3 +181,5 @@ tests/dbs/test.db
 notebooks/test.ipynb
 .env_local
 .env_ethcstwin
+.env_localhost
+tests/temp.ipynb

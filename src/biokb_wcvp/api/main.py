@@ -2,14 +2,14 @@ import logging
 import os
 import secrets
 from contextlib import asynccontextmanager
-from typing import Annotated, Dict, Optional
+from typing import Annotated, Dict, Optional, Sequence
 
 import uvicorn
-from fastapi import Depends, FastAPI, HTTPException, Query, status
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
-from sqlalchemy import func, select
+from sqlalchemy import distinct, func, select
 from sqlalchemy.orm import Session
 
 from biokb_wcvp.api import schemas
@@ -30,18 +30,15 @@ USERNAME = os.environ.get("WCVP_API_USERNAME", "admin")
 PASSWORD = os.environ.get("WCVP_API_PASSWORD", "admin")
 
 
-def get_session():
-    with manager.DbManager().Session() as session:
+def get_session(request: Request):
+    with request.app.state.dbm.Session() as session:
         yield session
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # dbm.drop_db()
-    dbm = manager.DbManager()
+    app.state.dbm = manager.DbManager()
     yield
-    # Clean up
-    pass
 
 
 description = """A RESTful API for WCVP."""
@@ -51,7 +48,7 @@ app = FastAPI(
     description=description,
     version="0.1.0",
     lifespan=lifespan,
-    root_path=os.environ.get("API_WCVP_ROOT_PATH", "")
+    root_path=os.environ.get("API_WCVP_ROOT_PATH", ""),
 )
 
 app.add_middleware(
@@ -261,6 +258,27 @@ async def search_areas(
     if name:
         query = query.filter(models.Area.name.like(name))
     return query.all()
+
+
+@app.get(
+    "/locations/code_l3/by_tax_id/",
+    response_model=list[str],
+    tags=[Tag.LOCATION],
+)
+async def get_areas_by_tax_id(
+    tax_id: int,
+    session: Session = Depends(get_session),
+) -> Sequence[str | None]:
+    """Get distinct location code_l3 (TDWG Biodiversity Information Standards) for a given tax_id."""
+    stmt = (
+        select(distinct(models.Location.code_l3))
+        .select_from(models.Location)
+        .join(models.Plant)
+        .where(
+            models.Plant.tax_id == tax_id,
+        )
+    )
+    return session.execute(stmt).scalars().all()
 
 
 @app.get(

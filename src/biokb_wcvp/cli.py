@@ -187,11 +187,19 @@ def import_neo4j(uri: str, user: str, password: Optional[str]) -> None:
 @click.option("--port", "-P", default=8000, help="API server port [default: 8000]")
 @click.option("--user", "-u", default="admin", help="API username [default=admin]")
 @click.option("--password", "-p", default="admin", help="API password [default: admin]")
+@click.option(
+    "-e",
+    "--env",
+    type=str,
+    default=None,
+    help="Environment file to load for configuration (default: None)",
+)
 def run_server(
     host: str,
     port: int,
     user: str,
     password: str,
+    env: Optional[str] = None,
 ) -> None:
     """Run the API server.
 
@@ -202,8 +210,16 @@ def run_server(
         password (str): API password
     """
     # set env variables for API authentication
-    os.environ["API_USER"] = user
-    os.environ["API_PASSWORD"] = password
+    if env:
+        if not os.path.exists(env):
+            logger.error("Environment file %s not found.", env)
+            return
+        load_dotenv(env, override=True)
+    else:
+        # set env variables for API authentication
+        os.environ["API_USER"] = user
+        os.environ["API_PASSWORD"] = password
+
     host_shown = "127.0.0.1" if host == "0.0.0.0" else host
     click.echo(f"API server running at http://{host_shown}:{port}/docs#/")
     run_api(host=host, port=port)

@@ -10,7 +10,7 @@ from typing import Optional, Type, Union
 import pandas as pd
 import requests
 from sqlalchemy import Engine, create_engine, event, insert, select, text, update
-from sqlalchemy.orm import aliased, sessionmaker
+from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm.session import Session
 
 # Import your models and Base from models.py
@@ -24,7 +24,6 @@ from biokb_wcvp.constants import (
     TAXONOMY_URL,
 )
 from biokb_wcvp.db import models
-from biokb_wcvp.db.tree import Tree
 from biokb_wcvp.tools import download_and_unzip
 
 # Configure logging
@@ -45,7 +44,29 @@ def set_sqlite_pragma(
         cursor.close()
 
 
-class DbManager:
+class Manager:
+    def __init__(
+        self,
+        engine: Optional[Engine] = None,
+    ):
+        """
+        Initialize the Manager with a database engine and path to the data files.
+
+        Args:
+            engine: SQLAlchemy database engine instance.
+        """
+        connection_str: str = os.getenv("CONNECTION_STR", DB_DEFAULT_CONNECTION_STR)
+
+        self.__engine = engine if engine else create_engine(connection_str)
+        if self.__engine.dialect.name == "sqlite":
+            with self.__engine.connect() as connection:
+                connection.execute(text("pragma foreign_keys=ON"))
+
+        self.Session = sessionmaker(bind=self.__engine)
+        logger.info("Engine: %s", self.__engine)
+
+
+class DbManager(Manager):
     """
     Manages database operations, including creating, dropping, and importing data from TSV files.
     """
@@ -60,16 +81,8 @@ class DbManager:
         Args:
             engine: SQLAlchemy database engine instance.
         """
-        connection_str: str = os.getenv("CONNECTION_STR", DB_DEFAULT_CONNECTION_STR)
-
-        self.__engine = engine if engine else create_engine(connection_str)
-        if self.__engine.dialect.name == "sqlite":
-            with self.__engine.connect() as connection:
-                connection.execute(text("pragma foreign_keys=ON"))
-
-        self.Session = sessionmaker(bind=self.__engine)
+        super().__init__(engine)
         self.path_data_folder = DEFAULT_PATH_UNZIPPED_DATA_FOLDER
-        logger.info("Engine: %s", self.__engine)
 
     @property
     def session(self) -> Session:
@@ -301,7 +314,7 @@ class DbManager:
             ],
             inplace=True,
         )
-        df.code_l3 = df.code_l3.str.upper()
+        df["code_l3"] = df["code_l3"].str.upper()
 
         inserted_location = df.to_sql(
             models.Location.__tablename__,
@@ -348,7 +361,7 @@ class DbManager:
             usecols=[0, 1, 3],
             names=["tax_id", "name", "name_type"],
         )
-        df.name_type = df.name_type.str[:-2]
+        df["name_type"] = df["name_type"].str[:-2]
         df.index += 1
         df.index.rename("id", inplace=True)
         df.to_sql(
@@ -489,6 +502,47 @@ class DbManager:
             index=False,
         )
         return {models.GeoLocationLevel3.__tablename__: inserted or 0}
+
+
+class QueryManager(Manager):
+    """
+    Manages database operations, including creating, dropping, and importing data from TSV files.
+    """
+
+    def __init__(
+        self,
+        engine: Optional[Engine] = None,
+    ):
+        """
+        Initialize the QueryManager with a database engine and path to the data files.
+
+        Args:
+            engine: SQLAlchemy database engine instance.
+        """
+        super().__init__(engine)
+
+    def get_locations_by_taxids(self, tax_ids: list[int]) -> pd.DataFrame:
+        """Get locations for given tax_ids.
+
+        Args:
+            tax_ids (list[int]): List of tax_ids to query.
+
+        Returns:
+            pd.DataFrame: DataFrame containing locations for the given tax_ids.
+        """
+        # Implementation goes here
+        with self.Session() as session:
+            stmt = (
+                select(models.Plant.taxon_name)
+                .join(
+                    models.Plant,
+                    models.Plant.plant_name_id == models.Location.wcvp_plant_id,
+                )
+                .where(models.Plant.tax_id.in_(tax_ids))
+            )
+            result = session.execute(stmt).fetchall()
+            df = pd.DataFrame(result, columns=result[0].keys() if result else [])
+            return df
 
 
 def import_data(

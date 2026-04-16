@@ -100,7 +100,7 @@ async def export_ttls(
     """Create zipped RDF turtle files (if not exists) for WCVP data export."""
     dbm = manager.DbManager()
     if not os.path.exists(ZIPPED_TTLS_PATH):
-        tc = TurtleCreator(dbm.__engine)
+        tc = TurtleCreator(dbm._engine)
         tc.create_ttls()
 
     return FileResponse(
@@ -115,8 +115,8 @@ async def import_into_neo4j(
     """Create zipped RDF turtle files (if not exists) for WCVP data export."""
     dbm = manager.DbManager()
     # check if database exists and has data
-    plant_table_exists = dbm.__engine.dialect.has_table(
-        dbm.__engine.connect(), models.Plant.__tablename__
+    plant_table_exists = dbm._engine.dialect.has_table(
+        dbm._engine.connect(), models.Plant.__tablename__
     )
     if not plant_table_exists:
         dbm.import_data()
@@ -127,7 +127,7 @@ async def import_into_neo4j(
                 dbm.import_data()
 
     if not os.path.exists(ZIPPED_TTLS_PATH):
-        tc = TurtleCreator(dbm.__engine)
+        tc = TurtleCreator(dbm._engine)
         tc.create_ttls()
 
     ni = Neo4jImporter()

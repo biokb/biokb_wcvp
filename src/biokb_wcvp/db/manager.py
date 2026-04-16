@@ -57,13 +57,13 @@ class Manager:
         """
         connection_str: str = os.getenv("CONNECTION_STR", DB_DEFAULT_CONNECTION_STR)
 
-        self.__engine = engine if engine else create_engine(connection_str)
-        if self.__engine.dialect.name == "sqlite":
-            with self.__engine.connect() as connection:
+        self._engine = engine if engine else create_engine(connection_str)
+        if self._engine.dialect.name == "sqlite":
+            with self._engine.connect() as connection:
                 connection.execute(text("pragma foreign_keys=ON"))
 
-        self.Session = sessionmaker(bind=self.__engine)
-        logger.info("Engine: %s", self.__engine)
+        self.Session = sessionmaker(bind=self._engine)
+        logger.info("Engine: %s", self._engine)
 
 
 class DbManager(Manager):
@@ -98,8 +98,8 @@ class DbManager(Manager):
 
     def recreate_db(self):
         """Drop all tables and recreate them."""
-        models.Base.metadata.drop_all(bind=self.__engine)
-        models.Base.metadata.create_all(bind=self.__engine)
+        models.Base.metadata.drop_all(bind=self._engine)
+        models.Base.metadata.create_all(bind=self._engine)
 
     def import_data(self, force_download: bool = False, delete_files: bool = False):
         self.recreate_db()
@@ -149,7 +149,7 @@ class DbManager(Manager):
             on=column_name,
         ).drop(columns=[column_name])
         inserted_model = df_unique.rename(columns={column_name: "name"}).to_sql(
-            model.__tablename__, con=self.__engine, if_exists="append"
+            model.__tablename__, con=self._engine, if_exists="append"
         )
         return df, inserted_model or 0
 
@@ -205,7 +205,7 @@ class DbManager(Manager):
         logger.info("Inserting plant names")
         inserted_plants = df.set_index("plant_name_id").to_sql(
             models.Plant.__tablename__,
-            con=self.__engine,
+            con=self._engine,
             if_exists="append",
             chunksize=10000,
         )
@@ -274,7 +274,7 @@ class DbManager(Manager):
             .set_index("code_l1", drop=True)
         ).dropna()
         inserted_continent = df_continent.to_sql(
-            models.Continent.__tablename__, con=self.__engine, if_exists="append"
+            models.Continent.__tablename__, con=self._engine, if_exists="append"
         )
         # ----------------
         # Regions
@@ -291,7 +291,7 @@ class DbManager(Manager):
         # ----------------
         logger.info("Inserting areas")
         inserted_region = df_region.to_sql(
-            models.Region.__tablename__, con=self.__engine, if_exists="append"
+            models.Region.__tablename__, con=self._engine, if_exists="append"
         )
         df_area = (
             df[["code_l3", "area"]]
@@ -300,7 +300,7 @@ class DbManager(Manager):
             .set_index("code_l3", drop=True)
         ).dropna()
         inserted_area = df_area.to_sql(
-            models.Area.__tablename__, con=self.__engine, if_exists="append"
+            models.Area.__tablename__, con=self._engine, if_exists="append"
         )
         # ----------------
         # Locations
@@ -318,7 +318,7 @@ class DbManager(Manager):
 
         inserted_location = df.to_sql(
             models.Location.__tablename__,
-            con=self.__engine,
+            con=self._engine,
             if_exists="append",
             index=False,
             chunksize=100_000,
@@ -347,8 +347,8 @@ class DbManager(Manager):
             Dict[str, int]: table name, number of entries
         """
         logger.info("import taxonomy names (up to 5min)")
-        models.TaxonomyName.__table__.drop(self.__engine, checkfirst=True)  # type: ignore
-        models.TaxonomyName.__table__.create(self.__engine, checkfirst=True)  # type: ignore
+        models.TaxonomyName.__table__.drop(self._engine, checkfirst=True)  # type: ignore
+        models.TaxonomyName.__table__.create(self._engine, checkfirst=True)  # type: ignore
         os.makedirs(TAXONOMY_DATA_FOLDER, exist_ok=True)
         taxtree_path_to_file = os.path.join(TAXONOMY_DATA_FOLDER, "taxdmp.zip")
         self.__download_taxdmp(taxtree_path_to_file)
@@ -366,7 +366,7 @@ class DbManager(Manager):
         df.index.rename("id", inplace=True)
         df.to_sql(
             models.TaxonomyName.__tablename__,
-            self.__engine,
+            self._engine,
             if_exists="append",
             chunksize=10000,
         )
@@ -412,8 +412,8 @@ class DbManager(Manager):
             # Inherit tax_id from accepted name
             # Table have to be created fresh each time
             logger.info("Creating temporary table for tax_id inheritance")
-            models.TempWcvpPlant.__table__.drop(self.__engine, checkfirst=True)  # type: ignore
-            models.TempWcvpPlant.__table__.create(self.__engine, checkfirst=True)  # type: ignore
+            models.TempWcvpPlant.__table__.drop(self._engine, checkfirst=True)  # type: ignore
+            models.TempWcvpPlant.__table__.create(self._engine, checkfirst=True)  # type: ignore
             stmt = insert(models.TempWcvpPlant).from_select(
                 ["plant_name_id", "tax_id"],
                 select(models.Plant.plant_name_id, models.Plant.tax_id),
@@ -446,12 +446,12 @@ class DbManager(Manager):
         """Import World Geographical Scheme for Recording Plant Distributions
         https://www.tdwg.org/standards/wgsrpd/."""
         logger.info("Importing TDWG geoschemes")
-        models.GeoLocationLevel3.__table__.drop(self.__engine, checkfirst=True)  # type: ignore
-        models.GeoLocationLevel2.__table__.drop(self.__engine, checkfirst=True)  # type: ignore
-        models.GeoLocationLevel1.__table__.drop(self.__engine, checkfirst=True)  # type: ignore
-        models.GeoLocationLevel1.__table__.create(self.__engine, checkfirst=True)  # type: ignore
-        models.GeoLocationLevel2.__table__.create(self.__engine, checkfirst=True)  # type: ignore
-        models.GeoLocationLevel3.__table__.create(self.__engine, checkfirst=True)  # type: ignore
+        models.GeoLocationLevel3.__table__.drop(self._engine, checkfirst=True)  # type: ignore
+        models.GeoLocationLevel2.__table__.drop(self._engine, checkfirst=True)  # type: ignore
+        models.GeoLocationLevel1.__table__.drop(self._engine, checkfirst=True)  # type: ignore
+        models.GeoLocationLevel1.__table__.create(self._engine, checkfirst=True)  # type: ignore
+        models.GeoLocationLevel2.__table__.create(self._engine, checkfirst=True)  # type: ignore
+        models.GeoLocationLevel3.__table__.create(self._engine, checkfirst=True)  # type: ignore
 
         # Implementation goes here
         df_l1 = pd.read_excel(
@@ -465,7 +465,7 @@ class DbManager(Manager):
             },
         ).to_sql(
             models.GeoLocationLevel1.__tablename__,
-            con=self.__engine,
+            con=self._engine,
             if_exists="append",
             index=False,
         )
@@ -481,7 +481,7 @@ class DbManager(Manager):
             },
         ).to_sql(
             models.GeoLocationLevel2.__tablename__,
-            con=self.__engine,
+            con=self._engine,
             if_exists="append",
             index=False,
         )
@@ -497,7 +497,7 @@ class DbManager(Manager):
             },
         ).to_sql(
             models.GeoLocationLevel3.__tablename__,
-            con=self.__engine,
+            con=self._engine,
             if_exists="append",
             index=False,
         )

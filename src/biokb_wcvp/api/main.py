@@ -303,6 +303,27 @@ async def get_areas_by_tax_ids(
 
 
 @app.get(
+    "/locations/code_l3/by_plant_name_ids/",
+    response_model=list[str],
+    tags=[Tag.LOCATION],
+)
+async def get_areas_by_plant_name_ids(
+    plant_name_ids: list[int] = Query(),
+    session: Session = Depends(get_session),
+) -> Sequence[str | None]:
+    """Get distinct location code_l3 (TDWG Biodiversity Information Standards) for a given list of plant_name_ids."""
+    stmt = (
+        select(distinct(models.Location.code_l3))
+        .select_from(models.Location)
+        .join(models.Plant)
+        .where(
+            models.Plant.plant_name_id.in_(plant_name_ids),
+        )
+    )
+    return session.execute(stmt).scalars().all()
+
+
+@app.get(
     "/plant_location/",
     response_model=schemas.PlantLocationSearchResults,
     tags=[Tag.LOCATION, Tag.PLANT],

@@ -1,7 +1,6 @@
 import os
 from pathlib import Path
 
-
 # standard for all biokb projects, but individual set
 PROJECT_NAME = "wcvp"
 BASIC_NODE_LABEL = "DbWCVP"
@@ -9,7 +8,7 @@ BASIC_NODE_LABEL = "DbWCVP"
 ORGANIZATION = "biokb"
 LIBRARY_NAME = f"{ORGANIZATION}_{PROJECT_NAME}"
 HOME = str(Path.home())
-BIOKB_FOLDER = os.path.join(HOME, f".{ORGANIZATION}")
+BIOKB_FOLDER = os.getenv("BIOKB_FOLDER", os.path.join(HOME, f".{ORGANIZATION}"))
 PROJECT_FOLDER = os.path.join(BIOKB_FOLDER, PROJECT_NAME)
 DATA_FOLDER = os.path.join(PROJECT_FOLDER, "data")
 EXPORT_FOLDER = os.path.join(DATA_FOLDER, "ttls")

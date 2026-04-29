@@ -5,7 +5,6 @@ from typing import Optional
 import click
 from dotenv import load_dotenv
 from sqlalchemy import create_engine
-from sqlalchemy.engine import Engine
 
 from biokb_wcvp import __version__
 from biokb_wcvp.api.main import run_api
@@ -13,6 +12,7 @@ from biokb_wcvp.constants import DB_DEFAULT_CONNECTION_STR, NEO4J_URI, NEO4J_USE
 from biokb_wcvp.db.manager import DbManager
 from biokb_wcvp.rdf.neo4j_importer import Neo4jImporter
 from biokb_wcvp.rdf.turtle import TurtleCreator
+from biokb_wcvp.tools import get_engine
 
 logger = logging.getLogger("biokb_wcvp")
 
@@ -99,24 +99,11 @@ def import_data(
     env: Optional[str] = None,
 ):
     """Import data."""
-    if env:
-        if connection_string:
-            logger.warning(
-                "Both environment file and connection string provided. Environment have priority."
-            )
-        if not os.path.exists(env):
-            logger.error("Environment file %s not found.", env)
-            return
-        load_dotenv(env, override=True)
-        connection_string = os.getenv("CONNECTION_STR")
-        if connection_string is None:
-            logger.warning(
-                "CONNECTION_STR environment variable not found. Using default connection string."
-            )
-
-    engine: Engine | None = (
-        create_engine(connection_string) if connection_string else None
-    )
+    try:
+        engine = get_engine(connection_string=connection_string, env=env)
+    except ValueError as e:
+        logger.error("Error creating database engine: %s", e)
+        return
     DbManager(engine=engine).import_data(
         force_download=force_download, delete_files=delete_files
     )
@@ -139,14 +126,12 @@ def import_data(
 )
 def create_ttls(connection_string: str | None, env: Optional[str] = None) -> None:
     """Create TTL files from local database."""
-    if env:
-        load_dotenv(
-            env, override=True
-        )  # Load environment variables from .env file, override existing env variables if any
-        connection_string = os.getenv("DB_CONNECTION_STRING", DB_DEFAULT_CONNECTION_STR)
-    if connection_string is None:
-        connection_string = DB_DEFAULT_CONNECTION_STR
-    path_to_zip = TurtleCreator(create_engine(connection_string)).create_ttls()
+    try:
+        engine = get_engine(connection_string=connection_string, env=env)
+    except ValueError as e:
+        logger.error("Error creating database engine: %s", e)
+        return
+    path_to_zip = TurtleCreator(engine).create_ttls()
     click.echo(
         f"Path to the zip file containing all generated Turtle files. {path_to_zip}"
     )

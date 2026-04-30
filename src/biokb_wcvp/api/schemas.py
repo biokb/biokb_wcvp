@@ -63,12 +63,6 @@ class PlantBase(BaseModel):
                     result[field_name] = value
         return result
 
-        # models.Plant.plant_name_id,
-        # models.Plant.tax_id,
-        # models.Plant.family_id,
-        # models.Family.name,
-        # func.group_concat(models.Location.code_l3.distinct()).label("code_l3_list"),
-
 
 class PlantLocations(BaseModel):
     model_config = ConfigDict(from_attributes=True)

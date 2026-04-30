@@ -4,6 +4,7 @@ import secrets
 from contextlib import asynccontextmanager
 from typing import Annotated, Dict, Optional, Sequence
 
+import numpy as np
 import pandas as pd
 import uvicorn
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, status
@@ -315,6 +316,8 @@ async def get_areas_by_tax_ids(
     if df.empty:
         return []
     df["code_l3_list"] = df["code_l3_list"].apply(lambda x: x.split(",") if x else [])
+    # replace nan with None
+    df = df.replace({np.nan: None})
     return df.to_dict(orient="records")
 
 
@@ -351,6 +354,8 @@ async def get_areas_by_plant_name_ids(
     if df.empty:
         return []
     df["code_l3_list"] = df["code_l3_list"].apply(lambda x: x.split(",") if x else [])
+    # replace nan with None
+    df = df.replace({np.nan: None})
     return df.to_dict(orient="records")
 
 

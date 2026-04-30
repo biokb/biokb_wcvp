@@ -4,6 +4,7 @@ import secrets
 from contextlib import asynccontextmanager
 from typing import Annotated, Dict, Optional, Sequence
 
+import pandas as pd
 import uvicorn
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -283,44 +284,70 @@ async def get_areas_by_tax_id(
 
 @app.get(
     "/locations/code_l3/by_tax_ids/",
-    response_model=list[str],
+    response_model=list[schemas.PlantLocations],
     tags=[Tag.LOCATION],
 )
 async def get_areas_by_tax_ids(
     tax_ids: list[int] = Query(),
     session: Session = Depends(get_session),
-) -> Sequence[str | None]:
+):
     """Get distinct location code_l3 (TDWG Biodiversity Information Standards) for a given list of tax_ids."""
     stmt = (
-        select(distinct(models.Location.code_l3))
+        select(
+            models.Plant.plant_name_id,
+            models.Plant.tax_id,
+            models.Plant.ipni_id,
+            models.Plant.taxon_name,
+            models.Plant.family_id,
+            models.Family.name.label("family"),
+            func.group_concat(models.Location.code_l3.distinct()).label("code_l3_list"),
+        )
         .select_from(models.Location)
-        .join(models.Plant)
+        .join(models.Plant, models.Plant.plant_name_id == models.Location.wcvp_plant_id)
+        .join(models.Family, models.Plant.family_id == models.Family.id)
         .where(
             models.Plant.tax_id.in_(tax_ids),
         )
+        .group_by(models.Plant.tax_id)
     )
-    return session.execute(stmt).scalars().all()
+    # print mysql statement for debugging
+    df = pd.DataFrame(session.execute(stmt).all())
+    df["code_l3_list"] = df["code_l3_list"].apply(lambda x: x.split(",") if x else [])
+    return df.to_dict(orient="records")
 
 
 @app.get(
     "/locations/code_l3/by_plant_name_ids/",
-    response_model=list[str],
+    response_model=list[schemas.PlantLocations],
     tags=[Tag.LOCATION],
 )
 async def get_areas_by_plant_name_ids(
     plant_name_ids: list[int] = Query(),
     session: Session = Depends(get_session),
-) -> Sequence[str | None]:
+):
     """Get distinct location code_l3 (TDWG Biodiversity Information Standards) for a given list of plant_name_ids."""
     stmt = (
-        select(distinct(models.Location.code_l3))
+        select(
+            models.Plant.plant_name_id,
+            models.Plant.tax_id,
+            models.Plant.ipni_id,
+            models.Plant.taxon_name,
+            models.Plant.family_id,
+            models.Family.name.label("family"),
+            func.group_concat(models.Location.code_l3.distinct()).label("code_l3_list"),
+        )
         .select_from(models.Location)
-        .join(models.Plant)
+        .join(models.Plant, models.Plant.plant_name_id == models.Location.wcvp_plant_id)
+        .join(models.Family, models.Plant.family_id == models.Family.id)
         .where(
             models.Plant.plant_name_id.in_(plant_name_ids),
         )
+        .group_by(models.Plant.tax_id)
     )
-    return session.execute(stmt).scalars().all()
+    # print mysql statement for debugging
+    df = pd.DataFrame(session.execute(stmt).all())
+    df["code_l3_list"] = df["code_l3_list"].apply(lambda x: x.split(",") if x else [])
+    return df.to_dict(orient="records")
 
 
 @app.get(

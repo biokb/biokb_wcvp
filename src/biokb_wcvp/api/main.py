@@ -312,6 +312,8 @@ async def get_areas_by_tax_ids(
     )
     # print mysql statement for debugging
     df = pd.DataFrame(session.execute(stmt).all())
+    if df.empty:
+        return []
     df["code_l3_list"] = df["code_l3_list"].apply(lambda x: x.split(",") if x else [])
     return df.to_dict(orient="records")
 
@@ -346,6 +348,8 @@ async def get_areas_by_plant_name_ids(
     )
     # print mysql statement for debugging
     df = pd.DataFrame(session.execute(stmt).all())
+    if df.empty:
+        return []
     df["code_l3_list"] = df["code_l3_list"].apply(lambda x: x.split(",") if x else [])
     return df.to_dict(orient="records")
 

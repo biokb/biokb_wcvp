@@ -3,12 +3,10 @@
 import enum
 from typing import Optional
 
-from sqlalchemy import Enum as SAEnum
 from sqlalchemy import ForeignKey, Index, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from biokb_wcvp.constants import PROJECT_NAME
-from biokb_wcvp.rdf.namespaces import AREA_NS
 
 table_prefix = PROJECT_NAME + "_"
 

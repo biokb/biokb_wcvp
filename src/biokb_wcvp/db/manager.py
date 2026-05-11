@@ -5,7 +5,7 @@ import shutil
 import sqlite3
 import zipfile
 from io import BytesIO
-from typing import List, Optional, Type, Union
+from typing import Optional, Type, Union
 
 import pandas as pd
 import requests

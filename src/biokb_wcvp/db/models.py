@@ -215,6 +215,7 @@ class Plant(Base):
     reviewed: Mapped[Optional[bool]] = mapped_column(
         comment="Flag indicating whether the family to which the taxon belongs has been peer reviewed."
     )
+    # added by the library, not part of original data
     tax_id: Mapped[Optional[int]] = mapped_column(
         index=True,
         comment="NCBI Taxonomy identifier. Missing values indicate that the name has not been matched with a name in NCBI Taxonomy. If possible the tax_id is taken from the accepted name.",
@@ -267,6 +268,34 @@ class Plant(Base):
 
     def __repr__(self) -> str:
         return f"<Plant: id={self.plant_name_id}, name={self.taxon_name}>"
+
+
+class PlantProp(Base):
+    """This table contains properties of plants that are derived from
+    the location data. It is used to store the is_mediterranean, is_balkanic,
+    only_exists_in_mediterranean, only_exists_in_balkanic, only_exists_in_area
+    properties of plants."""
+
+    __tablename__ = table_prefix + "plant_prop"
+    plant_name_id: Mapped[int] = mapped_column(
+        primary_key=True, comment="World Checklist of Vascular Plants (WCVP) identifier"
+    )
+    is_mediterranean: Mapped[Optional[bool]] = mapped_column(
+        comment="Flag indicating whether the taxon is native to the Mediterranean region, based on the presence of any of the Mediterranean region area codes in the taxon's geographic distribution.",
+    )
+    is_balkanic: Mapped[Optional[bool]] = mapped_column(
+        comment="Flag indicating whether the taxon is native to the Balkans, based on the presence of any of the Balkans region area codes in the taxon's geographic distribution.",
+    )
+    only_exists_in_mediterranean: Mapped[Optional[bool]] = mapped_column(
+        comment="Flag indicating whether the taxon only exists in the Mediterranean region, based on the presence of any of the Mediterranean region area codes and the absence of any of the Balkans region area codes in the taxon's geographic distribution.",
+    )
+    only_exists_in_balkanic: Mapped[Optional[bool]] = mapped_column(
+        comment="Flag indicating whether the taxon only exists in the Balkans, based on the presence of any of the Balkans region area codes and the absence of any of the Mediterranean region area codes in the taxon's geographic distribution.",
+    )
+    only_exists_in_area: Mapped[Optional[str]] = mapped_column(
+        String(3),
+        comment="Flag indicating whether the taxon only exists in this area.",
+    )
 
 
 class TempWcvpPlant(Base):

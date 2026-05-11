@@ -5,7 +5,7 @@ import shutil
 import sqlite3
 import zipfile
 from io import BytesIO
-from typing import Optional, Type, Union
+from typing import List, Optional, Type, Union
 
 import pandas as pd
 import requests
@@ -15,13 +15,18 @@ from sqlalchemy.orm.session import Session
 
 # Import your models and Base from models.py
 from biokb_wcvp.constants import (
+    BALKAN_AREA_CODES,
     DB_DEFAULT_CONNECTION_STR,
     DEFAULT_PATH_UNZIPPED_DATA_FOLDER,
     DISTRIBUTION_FILE,
+    MEDITERANIAN_AREA_CODES,
     NAMES_FILE,
     PATH_TO_ZIP_FILE,
     TAXONOMY_DATA_FOLDER,
     TAXONOMY_URL,
+    TDWG_L1_URL,
+    TDWG_L2_URL,
+    TDWG_L3_URL,
 )
 from biokb_wcvp.db import models
 from biokb_wcvp.tools import download_and_unzip
@@ -110,6 +115,13 @@ class DbManager(Manager):
         logger.info("Plants imported successfully.")
         imported.update(self.import_locations())
         logger.info("Locations imported successfully.")
+        # After plant locations are imported,
+        # 1. is_mediterranean
+        # 2. is_balkanic
+        # 3. only_exists_in_mediterranean
+        # 4. only_exists_in_balkanic
+        # 6. only_exists_in_area
+        self.set_location_props()
         self.update_plant_tax_ids()
         logger.info("Tax IDs updated successfully.")
         imported.update(self.import_wgsrpd())
@@ -122,6 +134,44 @@ class DbManager(Manager):
                 os.remove(PATH_TO_ZIP_FILE)
 
         return imported
+
+    def set_location_props(self):
+        """Set location properties is_mediterranean, is_balkanic, only_exists_in_mediterranean, only_exists_in_balkanic, only_exists_in_area."""
+        with self.Session() as session:
+            stmt = (
+                select(models.Plant.plant_name_id, models.Location.code_l3)
+                .select_from(models.Plant)
+                .join(models.Plant.locations)
+                .where(models.Location.code_l3.isnot(None))
+            )
+            rows = session.execute(stmt).fetchall()
+            df = (
+                pd.DataFrame(rows, columns=["plant_name_id", "location_codes_l3"])
+                .groupby("plant_name_id")["location_codes_l3"]
+                .agg(set)
+                .to_frame()
+            )
+        df["is_mediterranean"] = df["location_codes_l3"].apply(
+            lambda codes: any(code in MEDITERANIAN_AREA_CODES for code in codes)
+        )
+        df["is_balkanic"] = df["location_codes_l3"].apply(
+            lambda codes: any(code in BALKAN_AREA_CODES for code in codes)
+        )
+        df["only_exists_in_mediterranean"] = df["location_codes_l3"].apply(
+            lambda codes: set(codes).issubset(MEDITERANIAN_AREA_CODES)
+        )
+        df["only_exists_in_balkanic"] = df["location_codes_l3"].apply(
+            lambda codes: set(codes).issubset(BALKAN_AREA_CODES)
+        )
+        df["only_exists_in_area"] = df["location_codes_l3"].apply(
+            lambda codes: list(codes)[0] if len(set(codes)) == 1 else None
+        )
+        df.drop(columns=["location_codes_l3"], inplace=True)
+        df.to_sql(
+            models.PlantProp.__tablename__,
+            con=self._engine,
+            if_exists="append",
+        )
 
     def extract_and_insert(
         self, df: pd.DataFrame, column_name: str, model: Type[models.Base]
@@ -455,7 +505,7 @@ class DbManager(Manager):
 
         # Implementation goes here
         df_l1 = pd.read_excel(
-            "https://github.com/tdwg/geoschemes/raw/refs/heads/main/terrestrial/Level1.xlsx",
+            TDWG_L1_URL,
             usecols=["L1 code", "L1 continent"],
         )
         df_l1.rename(
@@ -470,7 +520,7 @@ class DbManager(Manager):
             index=False,
         )
         df_l2 = pd.read_excel(
-            "https://github.com/tdwg/geoschemes/raw/refs/heads/main/terrestrial/Level2.xlsx",
+            TDWG_L2_URL,
             usecols=["L2 code", "L2 region", "L1 code"],
         )
         df_l2.rename(
@@ -486,7 +536,7 @@ class DbManager(Manager):
             index=False,
         )
         df_l3 = pd.read_excel(
-            "https://github.com/tdwg/geoschemes/raw/refs/heads/main/terrestrial/Level3_27-Jun-25.xlsx",
+            TDWG_L3_URL,
             usecols=["L3 code", "L3 area", "L2 code"],
         )
         inserted = df_l3.rename(

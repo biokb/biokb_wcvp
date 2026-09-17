@@ -2,7 +2,7 @@ import logging
 import os
 import secrets
 from contextlib import asynccontextmanager
-from typing import Annotated, Dict, Optional, Sequence
+from typing import Annotated, AsyncGenerator, Dict, Generator, Optional, Sequence
 
 import numpy as np
 import pandas as pd
@@ -11,13 +11,13 @@ from fastapi import Depends, FastAPI, HTTPException, Query, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
-from sqlalchemy import distinct, func, select
-from sqlalchemy.orm import Session
+from sqlalchemy import Engine, create_engine, distinct, func, select
+from sqlalchemy.orm import Session, sessionmaker
 
 from biokb_wcvp.api import schemas
 from biokb_wcvp.api.query_tools import build_dynamic_query
 from biokb_wcvp.api.tags import Tag
-from biokb_wcvp.constants import ZIPPED_TTLS_PATH
+from biokb_wcvp.constants import DB_DEFAULT_CONNECTION_STR, ZIPPED_TTLS_PATH
 from biokb_wcvp.db import manager, models
 from biokb_wcvp.rdf.neo4j_importer import Neo4jImporter
 from biokb_wcvp.rdf.turtle import TurtleCreator
@@ -32,15 +32,33 @@ USERNAME = os.environ.get("WCVP_API_USERNAME", "admin")
 PASSWORD = os.environ.get("WCVP_API_PASSWORD", "admin")
 
 
-def get_session(request: Request):
-    with request.app.state.dbm.Session() as session:
+def get_engine() -> Engine:
+    conn_url = os.environ.get("CONNECTION_STR", DB_DEFAULT_CONNECTION_STR)
+    engine: Engine = create_engine(conn_url, pool_pre_ping=True, pool_recycle=3600)
+    return engine
+
+
+def create_session_factory(engine: Engine) -> sessionmaker[Session]:
+    return sessionmaker(bind=engine, class_=Session, expire_on_commit=False)
+
+
+def get_session(request: Request) -> Generator[Session, None, None]:
+    session_factory: sessionmaker[Session] = request.app.state.session_factory
+    session = session_factory()
+    try:
         yield session
+    finally:
+        session.close()
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
-    app.state.dbm = manager.DbManager()
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    engine = get_engine()
+    app.state.engine = engine
+    app.state.session_factory = create_session_factory(engine)
+    app.state.dbm = manager.DbManager(engine)
     yield
+    app.state.engine.dispose()
 
 
 description = """A RESTful API for WCVP."""

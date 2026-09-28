@@ -7,7 +7,7 @@ into RDF Turtle format, suitable for semantic web applications and knowledge gra
 import logging
 import os.path
 import shutil
-from typing import List, Optional, Type, TypeVar
+from typing import Optional, TypeVar
 from urllib.parse import urlparse
 
 from rdflib import RDF, XSD, Graph, Literal, Namespace, URIRef
@@ -32,7 +32,7 @@ from biokb_wcvp.rdf import namespaces
 BaseModels = TypeVar("BaseModels", bound=models.Base)
 
 
-def get_namespace(model: Type[models.Base]) -> Namespace:
+def get_namespace(model: type[models.Base]) -> Namespace:
     """Generate an RDF namespace for a given SQLAlchemy model class.
 
     Args:
@@ -41,7 +41,7 @@ def get_namespace(model: Type[models.Base]) -> Namespace:
     Returns:
         RDF Namespace object with URI based on the model's class name.
     """
-    return Namespace(f"{namespaces.BASE_URI}/{model.__name__}#")
+    return Namespace(f"{namespaces.BASE_URI}{model.__name__}#")
 
 
 def get_empty_graph() -> Graph:
@@ -120,7 +120,7 @@ class TurtleCreator:
             if os.path.exists(data_folder):
                 taxonomy_file_name = os.path.basename(urlparse(TAXONOMY_URL).path)
                 if taxonomy_file_name not in os.listdir(data_folder):
-                    raise Exception(
+                    raise FileNotFoundError(
                         f"Taxonomy file '{taxonomy_file_name}' not found in {data_folder}"
                     )
                 self.__data_folder = data_folder
@@ -155,7 +155,7 @@ class TurtleCreator:
         Returns:
             Path to the created zip file containing all turtle files.
         """
-        logging.info("Starting turtle file generation process.")
+        logger.info("Starting turtle file generation process.")
 
         # Generate individual turtle files in order
         self.create_tdwg_locations()  # Geographic hierarchy
@@ -164,7 +164,7 @@ class TurtleCreator:
 
         # Package everything into a zip file
         path_to_zip_file: str = self.create_zip_from_all_ttls()
-        logging.info(f"Turtle files successfully packaged in {path_to_zip_file}")
+        logger.info(f"Turtle files successfully packaged in {path_to_zip_file}")
         return path_to_zip_file
 
     def create_locations(self):
@@ -173,7 +173,7 @@ class TurtleCreator:
         For each accepted plant name, this creates HAS_LOCATION relationships to TDWG
         geographic units at the most specific level available (Area > Region > Continent).
         """
-        logging.info("Creating RDF plant distribution turtle file.")
+        logger.info("Creating RDF plant distribution turtle file.")
         graph = get_empty_graph()
 
         with self.Session() as session:
@@ -228,12 +228,12 @@ class TurtleCreator:
         - Taxonomic name as literal
         - Parent taxon relationship for hierarchical navigation
         """
-        logging.info("Creating RDF plant taxonomy turtle file.")
+        logger.info("Creating RDF plant taxonomy turtle file.")
         graph = get_empty_graph()
 
         with self.Session() as session:
             # Query only accepted plant names (excluding synonyms)
-            plants: List[models.Plant] = (
+            plants: list[models.Plant] = (
                 session.query(models.Plant)
                 .where(
                     models.Plant.accepted_plant_name_id == models.Plant.plant_name_id
@@ -318,12 +318,12 @@ class TurtleCreator:
 
         Each level includes name literals and hierarchical relationships (HAS_REGION, HAS_AREA).
         """
-        logging.info("Creating RDF TDWG geographic hierarchy turtle file.")
+        logger.info("Creating RDF TDWG geographic hierarchy turtle file.")
         graph = get_empty_graph()
 
         with self.Session() as session:
             # Retrieve all continents (Level 1) with their nested regions and areas
-            continents: List[models.GeoLocationLevel1] = session.query(
+            continents: list[models.GeoLocationLevel1] = session.query(
                 models.GeoLocationLevel1
             ).all()
 

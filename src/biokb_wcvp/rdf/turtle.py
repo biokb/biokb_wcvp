@@ -251,7 +251,7 @@ class TurtleCreator:
                     triple=(
                         p,
                         RDF.type,
-                        namespaces.NODE_NS[models.Plant.__name__],
+                        namespaces.NODE_NS["Taxon"],
                     )
                 )
                 graph.add(triple=(p, RDF.type, namespaces.NODE_NS[BASIC_NODE_LABEL]))
@@ -274,11 +274,20 @@ class TurtleCreator:
                         )
                     )
 
+                graph.add(
+                    triple=(
+                        p,
+                        namespaces.REL_NS["id"],
+                        Literal(
+                            lexical_or_value=plant.plant_name_id, datatype=XSD.integer
+                        ),
+                    )
+                )
                 # Add the taxonomic name as a literal string
                 graph.add(
                     triple=(
                         p,
-                        namespaces.REL_NS["taxon_name"],
+                        namespaces.REL_NS["name"],
                         Literal(lexical_or_value=plant.taxon_name, datatype=XSD.string),
                     )
                 )

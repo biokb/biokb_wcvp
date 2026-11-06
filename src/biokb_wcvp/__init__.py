@@ -1,10 +1,11 @@
+import logging
 from importlib.metadata import PackageNotFoundError, version
 
 from biokb_wcvp.db import models
 from biokb_wcvp.db.manager import DbManager, get_session, import_data
-from biokb_wcvp.rdf.neo4j_importer import Neo4jImporter, import_ttls
-from biokb_wcvp.rdf.turtle import TurtleCreator, create_ttls
-import logging
+from biokb_wcvp.rdf.neo4j_importer import Neo4jImporter, import_neo4j
+from biokb_wcvp.rdf.turtle import TurtleCreator, create_turtles
+
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
@@ -19,8 +20,8 @@ __all__ = [
     "import_data",
     "get_session",
     "Neo4jImporter",
-    "import_ttls",
+    "import_neo4j",
     "TurtleCreator",
-    "create_ttls",
+    "create_turtles",
     "models",
 ]

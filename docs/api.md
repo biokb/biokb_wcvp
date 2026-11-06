@@ -4,19 +4,19 @@
 
 ::: biokb_wcvp.import_data
 
-## biokb_wcvp.create_ttls
-::: biokb_wcvp.create_ttls
+## biokb_wcvp.create_turtles
+::: biokb_wcvp.create_turtles
 
-## biokb_wcvp.import_ttls
-::: biokb_wcvp.import_ttls
+## biokb_wcvp.import_neo4j
+::: biokb_wcvp.import_neo4j
 
 ## Command Line Interface (CLI)
 
 ### import_data
 ::: biokb_wcvp.cli.import_data
 
-### create_ttls
-::: biokb_wcvp.cli.create_ttls
+### create_turtles
+::: biokb_wcvp.cli.create_turtles
 
 ### import_neo4j
 ::: biokb_wcvp.cli.import_neo4j

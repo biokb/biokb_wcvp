@@ -152,7 +152,7 @@ class Neo4jImporter:
         neo4j_db = Graph(store=Neo4jStore(config=config))
         return neo4j_db
 
-    def import_ttls(self, delete_existing_graph: bool = True) -> bool:
+    def import_neo4j(self, delete_existing_graph: bool = False) -> bool:
         """Import all turtle file in Neo4J from zipped turtle files.
 
         Args:
@@ -171,7 +171,7 @@ class Neo4jImporter:
         return True
 
 
-def import_ttls(
+def import_neo4j(
     neo4j_uri: str | None = None,
     neo4j_user: str | None = None,
     neo4j_pwd: str | None = None,
@@ -190,5 +190,5 @@ def import_ttls(
     importer = Neo4jImporter(
         neo4j_uri=neo4j_uri, neo4j_user=neo4j_user, neo4j_pwd=neo4j_pwd
     )
-    result: bool = importer.import_ttls(delete_existing_graph=delete_existing_graph)
+    result: bool = importer.import_neo4j(delete_existing_graph=delete_existing_graph)
     return result

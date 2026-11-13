@@ -180,6 +180,22 @@ async def search_plants(
 
 
 @app.get(
+    "/plant/{plant_name_id}/",
+    response_model=schemas.Plant,
+    tags=[Tag.PLANT],
+)
+async def get_plant(
+    plant_name_id: int,
+    session: Session = Depends(get_session),
+):
+    """
+    Get plant by ID.
+    """
+    stmt = select(models.Plant).where(models.Plant.plant_name_id == plant_name_id)
+    return session.execute(stmt).scalar_one_or_none()
+
+
+@app.get(
     "/plants/with_locations/",
     response_model=schemas.PlantSearchResultsWithLocs,
     tags=[Tag.PLANT],
